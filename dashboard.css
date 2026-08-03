@@ -5,8 +5,8 @@
 }
 
 :root {
-    --p: #176b5b;
-    --pd: #0f4d42;
+    --p: #10b981;
+    --pd: #22c55e;
     --ps: #e8f3f0;
     --gold: #d69b2d;
     --ink: #17231f;
@@ -44,7 +44,7 @@ a {
     position: fixed;
     inset: 0 auto 0 0;
     width: 250px;
-    background: #102d27;
+    background: #10b981;
     color: #fff;
     padding: 24px 16px;
     display: flex;
