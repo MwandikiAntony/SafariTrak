@@ -62,7 +62,7 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
     <a class="action primary" href="start-journey.php"><i class="fa-solid fa-route"></i><span><b>Start Journey</b><small>Plan and begin a trip</small></span><strong>›</strong></a>
     <button class="action" type="button" data-open-modal="shareModal"><i class="fa-solid fa-location-arrow"></i><span><b>Share Location</b><small>Let someone know where you are</small></span><strong>›</strong></button>
     <a class="action" href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i><span><b>Trusted Contacts</b><small>Manage people you trust</small></span><strong>›</strong></a>
-    <button class="action sos" type="button" data-open-modal="sosModal"><i class="fa-solid fa-life-ring"></i><span><b>Emergency / SOS</b><small>Get help when you need it</small></span><strong>›</strong></button>
+    <button class="action sos" type="button" data-open-modal="sosModal"><i class="fa-solid fa-triangle-exclamation"></i><span><b>Emergency / SOS</b><small>Get help when you need it</small></span><strong>›</strong></button>
   </div>
 </section>
 
@@ -119,7 +119,7 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
 <div class="modal-overlay" id="sosModal">
   <div class="modal sos">
     <div class="modal-head">
-      <div class="sos-icon"><i class="fa-solid fa-life-ring"></i></div>
+      <div class="sos-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
       <button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="modal-body">
