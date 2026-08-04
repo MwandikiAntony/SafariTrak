@@ -40,7 +40,7 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
 <div class="content">
 
 <div class="sos-panel">
-  <button type="button" class="sos-btn" data-open-modal="sosModal"><i class="fa-solid fa-life-ring"></i></button>
+  <button type="button" class="sos-btn" data-open-modal="sosModal"><i class="fa-solid fa-triangle-exclamation"></i></button>
   <div><h3>Need help right now?</h3><p>Press the SOS button to alert your trusted contacts with your current location. Only use this in a real emergency.</p></div>
 </div>
 
@@ -83,7 +83,7 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
 <div class="modal-overlay" id="sosModal">
   <div class="modal sos">
     <div class="modal-head">
-      <div class="sos-icon"><i class="fa-solid fa-life-ring"></i></div>
+      <div class="sos-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
       <button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="modal-body">
