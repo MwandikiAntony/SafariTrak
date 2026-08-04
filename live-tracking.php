@@ -69,7 +69,7 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
     <div class="card-head"><div><label>SAFETY</label><h3>While you travel</h3></div></div>
     <div class="tip-list">
       <div class="tip-row"><i class="fa-solid fa-route"></i><div><b>Route deviation alerts are on</b><p>You will be notified if you move significantly off the planned route.</p></div></div>
-      <div class="tip-row"><i class="fa-solid fa-life-ring"></i><div><b>SOS is one tap away</b><p>Use the emergency button on the Safety page if you need urgent help.</p></div></div>
+      <div class="tip-row"><i class="fa-solid fa-triangle-exclamation"></i><div><b>SOS is one tap away</b><p>Use the emergency button on the Safety page if you need urgent help.</p></div></div>
     </div>
   </div>
 </section>
