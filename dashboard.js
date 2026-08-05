@@ -39,3 +39,20 @@ document.querySelectorAll('[data-tab-group]').forEach(group => {
     });
   });
 });
+
+document.querySelectorAll('.notif-bell').forEach(bell => {
+  bell.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const dropdown = bell.parentElement.querySelector('.notif-dropdown');
+    dropdown?.classList.toggle('open');
+    document.getElementById('notifDot')?.style.setProperty('display', 'none');
+  });
+});
+
+document.addEventListener('click', (e) => {
+  document.querySelectorAll('.notif-dropdown.open').forEach(dropdown => {
+    if (!dropdown.contains(e.target) && !dropdown.previousElementSibling?.contains(e.target)) {
+      dropdown.classList.remove('open');
+    }
+  });
+});

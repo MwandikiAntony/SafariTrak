@@ -24,6 +24,8 @@ function showError(id, show) {
 
 togglePassword('toggleLoginPassword', 'loginPassword');
 togglePassword('toggleSignupPassword', 'signupPassword');
+togglePassword('toggleNewPassword', 'newPassword');
+togglePassword('toggleConfirmPassword', 'confirmPassword');
 
 const loginForm = document.getElementById('loginForm');
 if (loginForm) {
@@ -102,6 +104,50 @@ if (signupForm) {
 
     if (valid) {
       alert('Your details look good. Once the SafariTrak system is connected, this will create your account.');
+    }
+  });
+}
+
+const forgotForm = document.getElementById('forgotForm');
+if (forgotForm) {
+  forgotForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const contact = document.getElementById('resetContact');
+
+    if (!contact.value.trim()) {
+      showError('resetContactError', true);
+      return;
+    }
+    showError('resetContactError', false);
+
+    alert('Once the SafariTrak system is connected, a reset link will be sent to ' + contact.value.trim() + '.');
+  });
+}
+
+const resetForm = document.getElementById('resetForm');
+if (resetForm) {
+  resetForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const newPassword = document.getElementById('newPassword');
+    const confirmPassword = document.getElementById('confirmPassword');
+    let valid = true;
+
+    if (newPassword.value.trim().length < 6) {
+      showError('newPasswordError', true);
+      valid = false;
+    } else {
+      showError('newPasswordError', false);
+    }
+
+    if (confirmPassword.value.trim() !== newPassword.value.trim() || !confirmPassword.value.trim()) {
+      showError('confirmPasswordError', true);
+      valid = false;
+    } else {
+      showError('confirmPasswordError', false);
+    }
+
+    if (valid) {
+      alert('Once the SafariTrak system is connected, your password will be updated and you can log in with it.');
     }
   });
 }
