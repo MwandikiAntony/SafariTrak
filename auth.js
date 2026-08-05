@@ -48,8 +48,27 @@ if (loginForm) {
     }
 
     if (valid) {
-      alert('Your details look good. Once the SafariTrak system is connected, this will log you in.');
-    }
+    const formData = new FormData();
+    formData.append('username', username.value.trim());
+    formData.append('password', password.value.trim());
+
+    fetch('login.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = 'index.php';
+        } else {
+            alert('Login failed: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error logging in:', error);
+        alert('An error occurred while logging in.');
+    });
+}
   });
 }
 
@@ -101,7 +120,29 @@ if (signupForm) {
     }
 
     if (valid) {
-      alert('Your details look good. Once the SafariTrak system is connected, this will create your account.');
+      const formData = new FormData();
+formData.append('fullName', fullName.value.trim());
+formData.append('username', username.value.trim());
+formData.append('email', email.value.trim());
+formData.append('password', password.value.trim());
+
+fetch('signup.php', {
+    method: 'POST',
+    body: formData
+})
+.then(response => response.json())
+.then(data => {
+    if (data.success) {
+        alert('Account created successfully!');
+        window.location.href = 'login.html';
+    } else {
+        alert('Error: ' + data.message);
+    }
+})
+.catch(error => {
+    console.error('Error submitting form:', error);
+    alert('An error occurred while creating your account.');
+});
     }
   });
 }

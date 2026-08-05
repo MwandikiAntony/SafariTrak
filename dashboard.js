@@ -39,3 +39,43 @@ document.querySelectorAll('[data-tab-group]').forEach(group => {
     });
   });
 });
+
+const updateProfileBtn = document.getElementById('updateProfileBtn');
+if (updateProfileBtn) {
+    updateProfileBtn.addEventListener('click', () => {
+        const username = document.getElementById('usernameInput').value.trim();
+        const formData = new FormData();
+        formData.append('action', 'update_username');
+        formData.append('username', username);
+
+        fetch('update-profile.php', { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message);
+                if (data.success) location.reload();
+            });
+    });
+}
+
+const updatePasswordBtn = document.getElementById('updatePasswordBtn');
+if (updatePasswordBtn) {
+    updatePasswordBtn.addEventListener('click', () => {
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+
+        const formData = new FormData();
+        formData.append('action', 'update_password');
+        formData.append('current_password', currentPassword);
+        formData.append('new_password', newPassword);
+
+        fetch('update-profile.php', { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message);
+                if (data.success) {
+                    document.getElementById('currentPassword').value = '';
+                    document.getElementById('newPassword').value = '';
+                }
+            });
+    });
+}
