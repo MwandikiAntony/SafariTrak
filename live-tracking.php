@@ -20,6 +20,7 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
     <a href="index.php"><i class="fa-solid fa-grid-2"></i>Dashboard</a>
     <a href="my-journeys.php"><i class="fa-solid fa-map-location-dot"></i>My Journeys</a>
     <a class="active" href="live-tracking.php"><i class="fa-solid fa-location-crosshairs"></i>Live Tracking</a>
+    <a href="places.php"><i class="fa-solid fa-map-pin"></i>Places</a>
     <a href="messages.php"><i class="fa-regular fa-message"></i>Messages <em>3</em></a>
     <a href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Trusted Contacts</a>
     <a href="safety.php"><i class="fa-solid fa-shield-halved"></i>Safety</a>
@@ -35,7 +36,21 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
 <header>
   <button class="menu" id="menu"><i class="fa-solid fa-bars"></i></button>
   <div><label>ON THE ROAD</label><h1>Live Tracking</h1></div>
-  <div class="head-actions"><button><i class="fa-regular fa-bell"></i></button><div class="avatar">A</div></div>
+  <div class="head-actions">
+    <div class="notif-wrap">
+      <button type="button" class="notif-bell" id="notifBell"><i class="fa-regular fa-bell"></i><span class="notif-dot" id="notifDot"></span></button>
+      <div class="notif-dropdown" id="notifDropdown">
+        <div class="notif-dropdown-head"><b>Notifications</b><a href="notifications.php">View all</a></div>
+        <div class="notif-list">
+          <div class="notif-item unread"><i class="fa-solid fa-route"></i><div><b>Journey started</b><small>Nairobi to Nyeri &middot; 8:40 AM</small></div></div>
+          <div class="notif-item unread"><i class="fa-regular fa-message"></i><div><b>New message from Mary Wanjiku</b><small>Let me know when you arrive &middot; 10 min ago</small></div></div>
+          <div class="notif-item"><i class="fa-solid fa-location-arrow"></i><div><b>John Mwangi is now watching your journey</b><small>Yesterday</small></div></div>
+          <div class="notif-item"><i class="fa-solid fa-flag-checkered"></i><div><b>Journey completed</b><small>Nairobi to Meru &middot; 2 days ago</small></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="avatar">A</div>
+  </div>
 </header>
 
 <div class="content">
@@ -70,6 +85,7 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
     <div class="tip-list">
       <div class="tip-row"><i class="fa-solid fa-route"></i><div><b>Route deviation alerts are on</b><p>You will be notified if you move significantly off the planned route.</p></div></div>
       <div class="tip-row"><i class="fa-solid fa-triangle-exclamation"></i><div><b>SOS is one tap away</b><p>Use the emergency button on the Safety page if you need urgent help.</p></div></div>
+      <div class="tip-row"><i class="fa-solid fa-gas-pump"></i><div><b>Need a stop along the way?</b><p><a href="places.php" style="color:var(--p);font-weight:700;text-decoration:none">Find nearby hospitals, fuel stations, hotels and more</a></p></div></div>
     </div>
   </div>
 </section>
