@@ -114,12 +114,31 @@ body {
   padding: 0;
 }
 
+.auth-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+  margin-bottom: 4px;
+}
+
+.forgot-link {
+  font-size: 0.8rem;
+  color: #ffffff;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.forgot-link:hover {
+  text-decoration: underline;
+}
+
 .remember-me {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 2px;
-  margin-bottom: 4px;
 }
 
 .remember-me input[type="checkbox"] {
@@ -156,6 +175,16 @@ body {
   color: #ffffff;
   cursor: pointer;
   user-select: none;
+}
+
+.remember-me label a {
+  color: #a3e635;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.remember-me label a:hover {
+  text-decoration: underline;
 }
 
 .field-error {
