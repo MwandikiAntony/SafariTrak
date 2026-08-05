@@ -278,10 +278,12 @@ header h1 {
     margin-top: 9px
 }
 
-.shortcuts button {
+.shortcuts button,
+.shortcuts .shortcut-link {
     background: transparent;
     color: var(--muted);
-    font-size: 10px
+    font-size: 10px;
+    display: inline-block
 }
 
 .hero-note {
@@ -1557,4 +1559,337 @@ footer {
         flex-direction: column;
         align-items: flex-start
     }
+}
+
+.notif-wrap {
+    position: relative
+}
+
+.notif-bell {
+    position: relative
+}
+
+.notif-dot {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #c94b4b;
+    border: 2px solid #fff
+}
+
+.notif-dropdown {
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    width: 330px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, .15);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px);
+    transition: .15s ease;
+    z-index: 60
+}
+
+.notif-dropdown.open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0)
+}
+
+.notif-dropdown-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line)
+}
+
+.notif-dropdown-head b {
+    font-size: 12px
+}
+
+.notif-dropdown-head a {
+    font-size: 10px;
+    color: var(--p);
+    font-weight: 700
+}
+
+.notif-list {
+    max-height: 340px;
+    overflow-y: auto
+}
+
+.notif-item {
+    display: flex;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    align-items: flex-start
+}
+
+.notif-item:last-child {
+    border-bottom: 0
+}
+
+.notif-item i {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--ps);
+    color: var(--p);
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+    flex-shrink: 0
+}
+
+.notif-item.sos i {
+    background: #fdecec;
+    color: #c94b4b
+}
+
+.notif-item b {
+    font-size: 11px;
+    display: block
+}
+
+.notif-item small {
+    font-size: 9px;
+    color: var(--muted);
+    display: block;
+    margin-top: 3px
+}
+
+.notif-item.unread {
+    background: #f8fbfa
+}
+
+.notif-empty {
+    padding: 30px 16px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 11px
+}
+
+.notif-date-label {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: var(--muted);
+    padding: 16px 21px 6px
+}
+
+.notif-page-list {
+    padding: 0 21px 10px
+}
+
+.notif-row {
+    display: flex;
+    gap: 14px;
+    padding: 16px 0;
+    border-top: 1px solid var(--line);
+    align-items: flex-start
+}
+
+.notif-row:first-child {
+    border-top: 0
+}
+
+.notif-row .nicon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: var(--ps);
+    color: var(--p);
+    display: grid;
+    place-items: center;
+    flex-shrink: 0
+}
+
+.notif-row.sos .nicon {
+    background: #fdecec;
+    color: #c94b4b
+}
+
+.notif-row .ninfo {
+    flex: 1;
+    min-width: 0
+}
+
+.notif-row .ninfo b {
+    font-size: 12px;
+    display: block
+}
+
+.notif-row .ninfo p {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+    line-height: 1.6
+}
+
+.notif-row .ninfo small {
+    font-size: 9px;
+    color: var(--muted);
+    margin-top: 6px;
+    display: block
+}
+
+.notif-row .unread-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--p);
+    margin-top: 6px;
+    flex-shrink: 0
+}
+
+@media(max-width:480px) {
+    .notif-dropdown {
+        width: 86vw;
+        right: -8px
+    }
+}
+
+.org-badge {
+    display: inline-block;
+    background: var(--gold);
+    color: #fff;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    padding: 3px 7px;
+    border-radius: 20px;
+    margin-top: 4px
+}
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 18px
+}
+
+.stat-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px
+}
+
+.stat-card label {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: var(--p)
+}
+
+.stat-card strong {
+    font-size: 24px;
+    display: block;
+    margin-top: 10px
+}
+
+.stat-card small {
+    color: var(--muted);
+    font-size: 10px;
+    display: block;
+    margin-top: 4px
+}
+
+.data-table-wrap {
+    padding: 0 21px 21px;
+    overflow-x: auto
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    min-width: 560px
+}
+
+.data-table th {
+    text-align: left;
+    padding: 10px 12px;
+    color: var(--muted);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap
+}
+
+.data-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle
+}
+
+.data-table tr:last-child td {
+    border-bottom: 0
+}
+
+.table-person {
+    display: flex;
+    align-items: center;
+    gap: 8px
+}
+
+.table-person .person {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #dbe9e5;
+    color: var(--pd);
+    display: grid;
+    place-items: center;
+    font-size: 9px;
+    font-weight: 800;
+    flex-shrink: 0
+}
+
+.table-action {
+    color: var(--p);
+    font-weight: 700;
+    font-size: 10px;
+    text-decoration: none;
+    margin-right: 10px
+}
+
+.table-action.danger {
+    color: #c94b4b
+}
+
+.filter-bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 0 21px 16px;
+    flex-wrap: wrap
+}
+
+.filter-bar input {
+    flex: 1;
+    min-width: 180px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 11px;
+    outline: 0
+}
+
+.filter-bar select {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 11px;
+    outline: 0;
+    color: var(--ink)
 }
