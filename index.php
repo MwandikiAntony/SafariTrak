@@ -1,6 +1,5 @@
 <?php
 session_start();
-// Redirect unauthenticated users back to login
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.html");
     exit();
