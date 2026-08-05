@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once 'db.php';
 $userName = $_SESSION['user_name'] ?? 'Traveler';
 ?>
 <!doctype html>
@@ -53,13 +54,13 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
       <div><button type="button" class="btn-ghost">Change photo</button></div>
     </div>
     <div class="form-grid" style="padding:0">
-      <div class="form-field"><label>Full name</label><input type="text" value="<?= htmlspecialchars($userName) ?>"></div>
+      <div class="form-field"><label>Full name</label><input type="text" id="usernameInput" value="<?= htmlspecialchars($userName) ?>"></div>
       <div class="form-field"><label>Phone number</label><input type="tel" placeholder="0712 345 678"></div>
       <div class="form-field full"><label>Email address</label><input type="email" placeholder="you@example.com"></div>
       <div class="form-field full"><label>Home address</label><input type="text" placeholder="Used to suggest your usual routes"></div>
     </div>
     <div class="form-actions" style="padding-left:0;padding-right:0">
-      <button type="button" class="btn-primary" onclick="alert('Once the backend is connected, this will update your profile.')">Save changes</button>
+       <button type="button" id="updateProfileBtn" class="btn-primary">Save changes</button>>Save changes</button>
     </div>
   </div>
 
@@ -78,10 +79,9 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
   </div>
 
   <div class="settings-panel" data-tab-panel-group="settings" data-tab-panel="account">
-    <div class="form-field" style="max-width:360px;margin-bottom:14px"><label>Current password</label><input type="password" placeholder="Enter current password"></div>
-    <div class="form-field" style="max-width:360px;margin-bottom:14px"><label>New password</label><input type="password" placeholder="Enter new password"></div>
-    <button type="button" class="btn-primary" onclick="alert('Once the backend is connected, this will update your password.')">Update password</button>
-    <hr style="border:0;border-top:1px solid var(--line);margin:22px 0">
+    <div class="form-field" style="max-width:360px;margin-bottom:14px"><label>Current password</label><input type="password" id="currentPassword" placeholder="Enter current password"></div>
+    <div class="form-field" style="max-width:360px;margin-bottom:14px"><label>New password</label><input type="password" id="newPassword" placeholder="Enter new password"></div>
+    <button type="button" id="updatePasswordBtn" class="btn-primary">Update password</button>
     <button type="button" class="btn-ghost" style="color:#c94b4b;border-color:#f3d4d4" data-open-modal="deleteAccountModal">Delete my account</button>
   </div>
 
