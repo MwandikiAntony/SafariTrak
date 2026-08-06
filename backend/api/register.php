@@ -71,6 +71,11 @@ $insertStmt->execute([$fullName, $username, $email, $phoneDigits, $passwordHash]
 
 $userId = (int) $db->lastInsertId();
 
+$linkStmt = $db->prepare(
+    'UPDATE trusted_contacts SET contact_user_id = ? WHERE invite_phone = ? AND contact_user_id IS NULL'
+);
+$linkStmt->execute([$userId, $phoneDigits]);
+
 $userStmt = $db->prepare('SELECT id, full_name, username FROM users WHERE id = ?');
 $userStmt->execute([$userId]);
 $user = $userStmt->fetch();
