@@ -24,15 +24,6 @@ $incomingStmt = $db->prepare(
 );
 $incomingStmt->execute([$currentUser['id']]);
 $incoming = $incomingStmt->fetchAll();
-
-function initials_of(string $name): string {
-    $parts = preg_split('/\s+/', trim($name));
-    $letters = '';
-    foreach (array_slice($parts, 0, 2) as $p) {
-        $letters .= strtoupper(substr($p, 0, 1));
-    }
-    return $letters ?: '?';
-}
 ?>
 <!doctype html>
 <html lang="en">
@@ -116,7 +107,7 @@ function initials_of(string $name): string {
     $statusLabel = $isConfirmed ? 'Confirmed' : ($isLinked ? 'Pending confirmation' : 'Invited, not on SafariTrak yet');
   ?>
   <div class="contact-card" data-contact-id="<?= (int) $contact['id'] ?>" data-contact-name="<?= htmlspecialchars($displayName) ?>">
-    <div class="top"><span class="person"><?= htmlspecialchars(initials_of($displayName)) ?></span><div><b><?= htmlspecialchars($displayName) ?></b><small><?= htmlspecialchars($contact['relationship'] ?: 'Trusted contact') ?> &middot; <?= htmlspecialchars($statusLabel) ?></small></div></div>
+    <div class="top"><span class="person"><?= htmlspecialchars(st_initials($displayName)) ?></span><div><b><?= htmlspecialchars($displayName) ?></b><small><?= htmlspecialchars($contact['relationship'] ?: 'Trusted contact') ?> &middot; <?= htmlspecialchars($statusLabel) ?></small></div></div>
     <div class="permission-row"><span>See my live location</span><label class="toggle"><input type="checkbox" class="perm-toggle" data-field="share_live_location" <?= $contact['share_live_location'] ? 'checked' : '' ?>><span></span></label></div>
     <div class="permission-row"><span>Journey start and end alerts</span><label class="toggle"><input type="checkbox" class="perm-toggle" data-field="journey_alerts" <?= $contact['journey_alerts'] ? 'checked' : '' ?>><span></span></label></div>
     <div class="permission-row"><span>SOS alerts</span><label class="toggle"><input type="checkbox" class="perm-toggle" data-field="sos_alerts" <?= $contact['sos_alerts'] ? 'checked' : '' ?>><span></span></label></div>
