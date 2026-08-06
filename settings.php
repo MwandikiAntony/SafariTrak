@@ -26,7 +26,7 @@ require __DIR__ . '/backend/includes/auth-guard.php';
   <div class="bottom">
     <a class="active" href="settings.php"><i class="fa-solid fa-gear"></i>Settings</a>
     <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span><?= htmlspecialchars(strtoupper(substr($userName, 0, 1))) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
+    <div class="account"><span id="sidebarAvatar"><?= st_avatar_inner($currentUser) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
   </div>
 </aside>
 
@@ -39,15 +39,12 @@ require __DIR__ . '/backend/includes/auth-guard.php';
       <button type="button" class="notif-bell" id="notifBell"><i class="fa-regular fa-bell"></i><span class="notif-dot" id="notifDot"></span></button>
       <div class="notif-dropdown" id="notifDropdown">
         <div class="notif-dropdown-head"><b>Notifications</b><a href="notifications.php">View all</a></div>
-        <div class="notif-list">
-          <div class="notif-item unread"><i class="fa-solid fa-route"></i><div><b>Journey started</b><small>Nairobi to Nyeri &middot; 8:40 AM</small></div></div>
-          <div class="notif-item unread"><i class="fa-regular fa-message"></i><div><b>New message from Mary Wanjiku</b><small>Let me know when you arrive &middot; 10 min ago</small></div></div>
-          <div class="notif-item"><i class="fa-solid fa-location-arrow"></i><div><b>John Mwangi is now watching your journey</b><small>Yesterday</small></div></div>
-          <div class="notif-item"><i class="fa-solid fa-flag-checkered"></i><div><b>Journey completed</b><small>Nairobi to Meru &middot; 2 days ago</small></div></div>
+        <div class="notif-list" id="notifDropdownList">
+          <p class="notif-empty">Loading...</p>
         </div>
       </div>
     </div>
-    <div class="avatar"><?= htmlspecialchars(strtoupper(substr($userName, 0, 1))) ?></div>
+    <div class="avatar" id="headerAvatar"><?= st_avatar_inner($currentUser) ?></div>
   </div>
 </header>
 
@@ -63,8 +60,15 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 
   <div class="settings-panel active" data-tab-panel-group="settings" data-tab-panel="profile">
     <div class="avatar-row">
-      <div class="big-avatar"><?= strtoupper(substr($userName, 0, 1)) ?></div>
-      <div><button type="button" class="btn-ghost">Change photo</button></div>
+      <div class="big-avatar" id="profileAvatarPreview"><?= st_avatar_inner($currentUser) ?></div>
+      <div>
+        <input type="file" id="avatarFileInput" accept="image/png,image/jpeg,image/webp" style="display:none">
+        <button type="button" class="btn-ghost" id="changePhotoBtn">Change photo</button>
+        <?php if (!empty($currentUser['avatar_path'])): ?>
+        <button type="button" class="btn-ghost" id="removePhotoBtn" style="color:#c94b4b">Remove photo</button>
+        <?php endif; ?>
+        <p class="hint" style="margin-top:8px">JPG, PNG or WEBP, up to 4 MB</p>
+      </div>
     </div>
     <div class="form-grid" style="padding:0">
       <div class="form-field"><label>Full name</label><input type="text" value="<?= htmlspecialchars($userName) ?>"></div>
@@ -120,5 +124,7 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 </div>
 
 <script src="dashboard.js"></script>
+<script src="notifications-widget.js"></script>
+<script src="settings.js"></script>
 </body>
 </html>
