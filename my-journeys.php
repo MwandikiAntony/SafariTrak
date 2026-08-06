@@ -1,5 +1,45 @@
 <?php
 require __DIR__ . '/backend/includes/auth-guard.php';
+
+$db = safaritrak_db();
+
+$journeysStmt = $db->prepare(
+    'SELECT j.*,
+            (SELECT COUNT(*) FROM journey_shares js WHERE js.journey_id = j.id) AS share_count
+     FROM journeys j
+     WHERE j.user_id = ?
+     ORDER BY j.started_at DESC'
+);
+$journeysStmt->execute([$currentUser['id']]);
+$journeys = $journeysStmt->fetchAll();
+
+$sharedNamesStmt = $db->prepare(
+    'SELECT COALESCE(u.full_name, tc.invite_name) AS display_name
+     FROM journey_shares js
+     JOIN trusted_contacts tc ON tc.id = js.trusted_contact_id
+     LEFT JOIN users u ON u.id = tc.contact_user_id
+     WHERE js.journey_id = ?'
+);
+
+$groupStmt = $db->prepare(
+    'SELECT gj.*, (SELECT COUNT(*) FROM group_members gm WHERE gm.group_journey_id = gj.id) AS member_count
+     FROM group_journeys gj
+     WHERE gj.organizer_id = ?
+     ORDER BY gj.departure_at DESC'
+);
+$groupStmt->execute([$currentUser['id']]);
+$groupJourneys = $groupStmt->fetchAll();
+
+function journey_duration(string $start, ?string $end): string {
+    if (!$end) {
+        return '';
+    }
+    $diff = (new DateTime($start))->diff(new DateTime($end));
+    $parts = [];
+    if ($diff->h > 0) $parts[] = $diff->h . 'h';
+    $parts[] = $diff->i . 'm';
+    return implode(' ', $parts);
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -19,7 +59,7 @@ require __DIR__ . '/backend/includes/auth-guard.php';
     <a class="active" href="my-journeys.php"><i class="fa-solid fa-map-location-dot"></i>My Journeys</a>
     <a href="live-tracking.php"><i class="fa-solid fa-location-crosshairs"></i>Live Tracking</a>
     <a href="places.php"><i class="fa-solid fa-map-pin"></i>Places</a>
-    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages <em>3</em></a>
+    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages</a>
     <a href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Trusted Contacts</a>
     <a href="safety.php"><i class="fa-solid fa-shield-halved"></i>Safety</a>
   </nav>
@@ -69,41 +109,33 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 <div class="card">
   <div class="journey-list" id="journeyList">
 
-    <div class="journey-row" data-status="active" data-open-modal="journeyModal1">
-      <div class="jicon"><i class="fa-solid fa-route"></i></div>
-      <div class="jinfo"><b>Nairobi &rarr; Nyeri</b><small>Started today at 8:40 AM &middot; Shared with 2 contacts</small></div>
-      <div class="jmeta"><strong>148 km</strong><span class="badge active">In progress</span></div>
-    </div>
+    <?php if (empty($journeys) && empty($groupJourneys)): ?>
+    <p class="hint" style="padding:20px 21px;color:var(--muted);font-size:11px">You have not started any journeys yet. When you do, they will show up here.</p>
+    <?php endif; ?>
 
-    <div class="journey-row" data-status="group" data-open-modal="journeyModalGroup1">
+    <?php foreach ($journeys as $j): ?>
+    <?php
+      $statusBadge = ['active' => 'active', 'completed' => 'completed', 'cancelled' => 'cancelled'][$j['status']];
+      $statusLabel = ['active' => 'In progress', 'completed' => 'Completed', 'cancelled' => 'Cancelled'][$j['status']];
+      $icon = $j['status'] === 'cancelled' ? 'fa-xmark' : ($j['status'] === 'completed' ? 'fa-check' : 'fa-route');
+      $subLine = $j['status'] === 'active'
+        ? 'Started ' . (new DateTime($j['started_at']))->format('g:i A') . ($j['share_count'] > 0 ? ' &middot; Shared with ' . $j['share_count'] . ' ' . ($j['share_count'] == 1 ? 'contact' : 'contacts') : '')
+        : ucfirst($j['status']) . ' &middot; ' . (new DateTime($j['started_at']))->format('j M, g:i A');
+    ?>
+    <div class="journey-row" data-status="<?= $j['status'] ?>" data-open-modal="journeyModal<?= (int) $j['id'] ?>">
+      <div class="jicon"><i class="fa-solid <?= $icon ?>"></i></div>
+      <div class="jinfo"><b><?= htmlspecialchars($j['start_label']) ?> &rarr; <?= htmlspecialchars($j['end_label']) ?></b><small><?= $subLine ?></small></div>
+      <div class="jmeta"><strong><?= $j['distance_km'] !== null ? number_format((float) $j['distance_km'], 1) . ' km' : '-' ?></strong><span class="badge <?= $statusBadge ?>"><?= $statusLabel ?></span></div>
+    </div>
+    <?php endforeach; ?>
+
+    <?php foreach ($groupJourneys as $g): ?>
+    <div class="journey-row" data-status="group" data-open-modal="groupModal<?= (int) $g['id'] ?>">
       <div class="jicon"><i class="fa-solid fa-user-group"></i></div>
-      <div class="jinfo"><b>Family trip: Nairobi &rarr; Diani</b><small>Group journey &middot; 4 members &middot; Departs Friday, 6:00 AM</small></div>
-      <div class="jmeta"><strong>490 km</strong><span class="badge active">Upcoming</span></div>
+      <div class="jinfo"><b><?= htmlspecialchars($g['title']) ?></b><small>Group journey &middot; <?= (int) $g['member_count'] ?> members &middot; <?= htmlspecialchars(ucfirst($g['status'])) ?></small></div>
+      <div class="jmeta"><strong><?= $g['distance_km'] !== null ? number_format((float) $g['distance_km'], 1) . ' km' : '-' ?></strong><span class="badge active">Group</span></div>
     </div>
-
-    <div class="journey-row" data-status="completed" data-open-modal="journeyModal2">
-      <div class="jicon"><i class="fa-solid fa-check"></i></div>
-      <div class="jinfo"><b>Nairobi &rarr; Meru</b><small>Completed &middot; Yesterday, arrived 1:52 PM</small></div>
-      <div class="jmeta"><strong>263 km</strong><span class="badge completed">Completed</span></div>
-    </div>
-
-    <div class="journey-row" data-status="completed" data-open-modal="journeyModal3">
-      <div class="jicon"><i class="fa-solid fa-check"></i></div>
-      <div class="jinfo"><b>Nairobi &rarr; Nakuru</b><small>Completed &middot; 29 Jul, arrived 11:20 AM</small></div>
-      <div class="jmeta"><strong>156 km</strong><span class="badge completed">Completed</span></div>
-    </div>
-
-    <div class="journey-row" data-status="completed" data-open-modal="journeyModal4">
-      <div class="jicon"><i class="fa-solid fa-check"></i></div>
-      <div class="jinfo"><b>Meru &rarr; Nairobi</b><small>Completed &middot; 25 Jul, arrived 4:05 PM</small></div>
-      <div class="jmeta"><strong>263 km</strong><span class="badge completed">Completed</span></div>
-    </div>
-
-    <div class="journey-row" data-status="cancelled" data-open-modal="journeyModal5">
-      <div class="jicon"><i class="fa-solid fa-xmark"></i></div>
-      <div class="jinfo"><b>Nairobi &rarr; Naivasha</b><small>Cancelled &middot; 20 Jul before departure</small></div>
-      <div class="jmeta"><strong>93 km</strong><span class="badge cancelled">Cancelled</span></div>
-    </div>
+    <?php endforeach; ?>
 
   </div>
   <p class="hint" id="emptyState" style="display:none;padding:0 21px 21px;color:var(--muted);font-size:11px">No journeys in this category yet.</p>
@@ -114,82 +146,48 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 </main>
 </div>
 
-<div class="modal-overlay" id="journeyModalGroup1">
+<?php foreach ($journeys as $j): ?>
+<?php
+  $sharedNamesStmt->execute([$j['id']]);
+  $sharedNames = array_column($sharedNamesStmt->fetchAll(), 'display_name');
+?>
+<div class="modal-overlay" id="journeyModal<?= (int) $j['id'] ?>">
   <div class="modal">
-    <div class="modal-head"><div><h3>Family trip: Nairobi &rarr; Diani</h3><p>Group journey &middot; departs Friday, 6:00 AM</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body">
-      <p><b>Distance:</b> 490 km &middot; <b>Members:</b> 4</p>
-      <div class="share-contacts" style="margin-top:10px">
-        <div class="share-contact-row"><span class="person">JM</span><span>John Mwangi</span></div>
-        <div class="share-contact-row"><span class="person">MW</span><span>Mary Wanjiku</span></div>
-        <div class="share-contact-row"><span class="person">PK</span><span>Peter Kariuki</span></div>
-        <div class="share-contact-row"><span class="person">You</span><span>You (organizer)</span></div>
-      </div>
+    <div class="modal-head">
+      <div><h3><?= htmlspecialchars($j['start_label']) ?> &rarr; <?= htmlspecialchars($j['end_label']) ?></h3><p><?= ucfirst($j['status']) ?><?= $j['status'] === 'active' ? ' &middot; started ' . (new DateTime($j['started_at']))->format('g:i A') : '' ?></p></div>
+      <button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
     </div>
+    <div class="modal-body">
+      <p><b>Distance:</b> <?= $j['distance_km'] !== null ? number_format((float) $j['distance_km'], 1) . ' km' : 'Not available' ?><?= $j['ended_at'] ? ' &middot; <b>Duration:</b> ' . journey_duration($j['started_at'], $j['ended_at']) : '' ?></p>
+      <?php if (!empty($sharedNames)): ?>
+      <p style="margin-top:8px"><b>Shared with:</b> <?= htmlspecialchars(implode(', ', $sharedNames)) ?></p>
+      <?php endif; ?>
+      <?php if ($j['note']): ?>
+      <p style="margin-top:8px"><b>Note:</b> <?= htmlspecialchars($j['note']) ?></p>
+      <?php endif; ?>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="ghost" data-close-modal>Close</button>
+      <?php if ($j['status'] === 'active'): ?>
+      <a class="primary" href="live-tracking.php">View on map</a>
+      <?php endif; ?>
+    </div>
+  </div>
+</div>
+<?php endforeach; ?>
+
+<?php foreach ($groupJourneys as $g): ?>
+<div class="modal-overlay" id="groupModal<?= (int) $g['id'] ?>">
+  <div class="modal">
+    <div class="modal-head"><div><h3><?= htmlspecialchars($g['title']) ?></h3><p><?= (int) $g['member_count'] ?> members &middot; <?= htmlspecialchars(ucfirst($g['status'])) ?></p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body"><p><b>Destination:</b> <?= htmlspecialchars($g['destination_label']) ?></p></div>
     <div class="modal-actions">
       <button type="button" class="ghost" data-close-modal>Close</button>
       <a class="primary" href="group-travel.php">Manage group</a>
     </div>
   </div>
 </div>
-
-<div class="modal-overlay" id="journeyModal1">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Nairobi &rarr; Nyeri</h3><p>In progress &middot; started 8:40 AM</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body">
-      <p><b>Distance:</b> 148 km &middot; <b>ETA:</b> 11:15 AM</p>
-      <p style="margin-top:8px"><b>Shared with:</b> John Mwangi, Mary Wanjiku</p>
-      <p style="margin-top:8px">Live tracking and route details will show here once the map is connected to your journey data.</p>
-    </div>
-    <div class="modal-actions">
-      <button type="button" class="ghost" data-close-modal>Close</button>
-      <a class="primary" href="live-tracking.php">View on map</a>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="journeyModal2">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Nairobi &rarr; Meru</h3><p>Completed yesterday</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body">
-      <p><b>Distance:</b> 263 km &middot; <b>Duration:</b> 4h 12m</p>
-      <p style="margin-top:8px">Departed 9:40 AM, arrived 1:52 PM. No route deviations were flagged during this trip.</p>
-    </div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="journeyModal3">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Nairobi &rarr; Nakuru</h3><p>Completed 29 Jul</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body">
-      <p><b>Distance:</b> 156 km &middot; <b>Duration:</b> 2h 30m</p>
-      <p style="margin-top:8px">Departed 8:50 AM, arrived 11:20 AM. Shared with Mary Wanjiku for the full trip.</p>
-    </div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="journeyModal4">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Meru &rarr; Nairobi</h3><p>Completed 25 Jul</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body">
-      <p><b>Distance:</b> 263 km &middot; <b>Duration:</b> 4h 25m</p>
-      <p style="margin-top:8px">Departed 11:40 AM, arrived 4:05 PM. A short stop was recorded near Nyeri.</p>
-    </div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="journeyModal5">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Nairobi &rarr; Naivasha</h3><p>Cancelled 20 Jul</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body">
-      <p>This journey was cancelled before departure and no distance was recorded.</p>
-    </div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button></div>
-  </div>
-</div>
+<?php endforeach; ?>
 
 <script src="dashboard.js"></script>
 <script src="notifications-widget.js"></script>
