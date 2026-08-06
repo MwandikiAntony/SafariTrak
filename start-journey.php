@@ -1,5 +1,16 @@
 <?php
 require __DIR__ . '/backend/includes/auth-guard.php';
+
+$db = safaritrak_db();
+$contactsStmt = $db->prepare(
+    'SELECT tc.id, COALESCE(u.full_name, tc.invite_name) AS display_name
+     FROM trusted_contacts tc
+     LEFT JOIN users u ON u.id = tc.contact_user_id
+     WHERE tc.owner_id = ? AND tc.status = "confirmed"
+     ORDER BY display_name ASC'
+);
+$contactsStmt->execute([$currentUser['id']]);
+$confirmedContacts = $contactsStmt->fetchAll();
 ?>
 <!doctype html>
 <html lang="en">
@@ -64,6 +75,9 @@ require __DIR__ . '/backend/includes/auth-guard.php';
     <div class="form-field">
       <label for="startPoint">Starting point</label>
       <input type="text" id="startPoint" placeholder="e.g. Nairobi CBD" required>
+      <button type="button" class="btn-ghost" id="useMyLocationBtn" style="margin-top:6px;align-self:flex-start;font-size:9px;padding:7px 10px"><i class="fa-solid fa-location-crosshairs"></i> Use my current location</button>
+      <input type="hidden" id="startLat">
+      <input type="hidden" id="startLng">
     </div>
 
     <div class="form-field">
@@ -91,17 +105,22 @@ require __DIR__ . '/backend/includes/auth-guard.php';
       <textarea id="journeyNote" rows="3" placeholder="e.g. Travelling for a family visit, will call once I arrive"></textarea>
     </div>
 
-     <div class="form-field full">
+    <div class="form-field full">
       <label>Share this journey with</label>
-      <div class="share-contacts sj-share-contacts">
-        <div class="share-contact-row"><span class="person">JM</span><span>John Mwangi</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
-        <div class="share-contact-row"><span class="person">MW</span><span>Mary Wanjiku</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
-        <div class="share-contact-row"><span class="person">PK</span><span>Peter Kariuki</span><label class="toggle"><input type="checkbox"><span></span></label></div>
+      <?php if (empty($confirmedContacts)): ?>
+      <p class="hint">You have no confirmed trusted contacts yet. <a href="trusted-contacts.php" style="color:var(--p);font-weight:700;text-decoration:none">Add one first</a> so someone can follow this journey.</p>
+      <?php else: ?>
+      <div class="share-contacts">
+        <?php foreach ($confirmedContacts as $c): ?>
+        <div class="share-contact-row">
+          <span class="person"><?= htmlspecialchars(st_initials($c['display_name'])) ?></span>
+          <span><?= htmlspecialchars($c['display_name']) ?></span>
+          <label class="toggle"><input type="checkbox" class="share-checkbox" value="<?= (int) $c['id'] ?>" checked><span></span></label>
+        </div>
+        <?php endforeach; ?>
       </div>
+      <?php endif; ?>
     </div>
-    <style>
-      .sj-share-contacts .person{width:22px;height:22px;font-size:7px;flex:0 0 22px}
-    </style>
 
     <div class="form-field full" style="padding-top:4px">
       <div class="toggle-row" style="border-top:0;padding-top:0">
