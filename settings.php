@@ -1,7 +1,5 @@
 <?php
-session_start();
-require_once 'db.php';
-$userName = $_SESSION['user_name'] ?? 'Traveler';
+require __DIR__ . '/backend/includes/auth-guard.php';
 ?>
 <!doctype html>
 <html lang="en">
@@ -20,6 +18,7 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
     <a href="index.php"><i class="fa-solid fa-grid-2"></i>Dashboard</a>
     <a href="my-journeys.php"><i class="fa-solid fa-map-location-dot"></i>My Journeys</a>
     <a href="live-tracking.php"><i class="fa-solid fa-location-crosshairs"></i>Live Tracking</a>
+    <a href="places.php"><i class="fa-solid fa-map-pin"></i>Places</a>
     <a href="messages.php"><i class="fa-regular fa-message"></i>Messages <em>3</em></a>
     <a href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Trusted Contacts</a>
     <a href="safety.php"><i class="fa-solid fa-shield-halved"></i>Safety</a>
@@ -27,7 +26,7 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
   <div class="bottom">
     <a class="active" href="settings.php"><i class="fa-solid fa-gear"></i>Settings</a>
     <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span>A</span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
+    <div class="account"><span><?= htmlspecialchars(strtoupper(substr($userName, 0, 1))) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
   </div>
 </aside>
 
@@ -35,7 +34,21 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
 <header>
   <button class="menu" id="menu"><i class="fa-solid fa-bars"></i></button>
   <div><label>YOUR ACCOUNT</label><h1>Settings</h1></div>
-  <div class="head-actions"><button><i class="fa-regular fa-bell"></i></button><div class="avatar">A</div></div>
+  <div class="head-actions">
+    <div class="notif-wrap">
+      <button type="button" class="notif-bell" id="notifBell"><i class="fa-regular fa-bell"></i><span class="notif-dot" id="notifDot"></span></button>
+      <div class="notif-dropdown" id="notifDropdown">
+        <div class="notif-dropdown-head"><b>Notifications</b><a href="notifications.php">View all</a></div>
+        <div class="notif-list">
+          <div class="notif-item unread"><i class="fa-solid fa-route"></i><div><b>Journey started</b><small>Nairobi to Nyeri &middot; 8:40 AM</small></div></div>
+          <div class="notif-item unread"><i class="fa-regular fa-message"></i><div><b>New message from Mary Wanjiku</b><small>Let me know when you arrive &middot; 10 min ago</small></div></div>
+          <div class="notif-item"><i class="fa-solid fa-location-arrow"></i><div><b>John Mwangi is now watching your journey</b><small>Yesterday</small></div></div>
+          <div class="notif-item"><i class="fa-solid fa-flag-checkered"></i><div><b>Journey completed</b><small>Nairobi to Meru &middot; 2 days ago</small></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="avatar"><?= htmlspecialchars(strtoupper(substr($userName, 0, 1))) ?></div>
+  </div>
 </header>
 
 <div class="content">
@@ -54,13 +67,13 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
       <div><button type="button" class="btn-ghost">Change photo</button></div>
     </div>
     <div class="form-grid" style="padding:0">
-      <div class="form-field"><label>Full name</label><input type="text" id="usernameInput" value="<?= htmlspecialchars($userName) ?>"></div>
+      <div class="form-field"><label>Full name</label><input type="text" value="<?= htmlspecialchars($userName) ?>"></div>
       <div class="form-field"><label>Phone number</label><input type="tel" placeholder="0712 345 678"></div>
       <div class="form-field full"><label>Email address</label><input type="email" placeholder="you@example.com"></div>
       <div class="form-field full"><label>Home address</label><input type="text" placeholder="Used to suggest your usual routes"></div>
     </div>
     <div class="form-actions" style="padding-left:0;padding-right:0">
-       <button type="button" id="updateProfileBtn" class="btn-primary">Save changes</button>>Save changes</button>
+      <button type="button" class="btn-primary" onclick="alert('Once the backend is connected, this will update your profile.')">Save changes</button>
     </div>
   </div>
 
@@ -79,10 +92,13 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
   </div>
 
   <div class="settings-panel" data-tab-panel-group="settings" data-tab-panel="account">
-    <div class="form-field" style="max-width:360px;margin-bottom:14px"><label>Current password</label><input type="password" id="currentPassword" placeholder="Enter current password"></div>
-    <div class="form-field" style="max-width:360px;margin-bottom:14px"><label>New password</label><input type="password" id="newPassword" placeholder="Enter new password"></div>
-    <button type="button" id="updatePasswordBtn" class="btn-primary">Update password</button>
+    <div class="form-field" style="max-width:360px;margin-bottom:14px"><label>Current password</label><input type="password" placeholder="Enter current password"></div>
+    <div class="form-field" style="max-width:360px;margin-bottom:14px"><label>New password</label><input type="password" placeholder="Enter new password"></div>
+    <button type="button" class="btn-primary" onclick="alert('Once the backend is connected, this will update your password.')">Update password</button>
+    <hr style="border:0;border-top:1px solid var(--line);margin:22px 0">
     <button type="button" class="btn-ghost" style="color:#c94b4b;border-color:#f3d4d4" data-open-modal="deleteAccountModal">Delete my account</button>
+    <hr style="border:0;border-top:1px solid var(--line);margin:22px 0">
+    <a class="btn-ghost" href="admin-dashboard.php"><i class="fa-solid fa-building"></i>Manage an organization</a>
   </div>
 
 </div>
