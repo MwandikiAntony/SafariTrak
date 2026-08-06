@@ -1,6 +1,6 @@
 <?php
-session_start();
-$orgName = $_SESSION['org_name'] ?? 'Meru Transport Sacco';
+require __DIR__ . '/backend/includes/auth-guard.php';
+$orgName = 'Meru Transport Sacco';
 ?>
 <!doctype html>
 <html lang="en">

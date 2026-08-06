@@ -16,10 +16,31 @@ function togglePassword(buttonId, inputId) {
   });
 }
 
-function showError(id, show) {
+function showError(id, show, message) {
   const el = document.getElementById(id);
   if (!el) return;
+  if (message) el.textContent = message;
   el.classList.toggle('show', show);
+}
+
+function clearErrors(ids) {
+  ids.forEach(id => showError(id, false));
+}
+
+function setSubmitting(button, isSubmitting, defaultLabel) {
+  if (!button) return;
+  button.disabled = isSubmitting;
+  button.textContent = isSubmitting ? 'Please wait...' : defaultLabel;
+}
+
+async function postJSON(url, payload) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await response.json().catch(() => ({}));
+  return { ok: response.ok, status: response.status, data };
 }
 
 togglePassword('toggleLoginPassword', 'loginPassword');
@@ -29,10 +50,13 @@ togglePassword('toggleConfirmPassword', 'confirmPassword');
 
 const loginForm = document.getElementById('loginForm');
 if (loginForm) {
-  loginForm.addEventListener('submit', (e) => {
+  const submitBtn = loginForm.querySelector('.login-btn');
+
+  loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('loginUsername');
     const password = document.getElementById('loginPassword');
+    const remember = document.getElementById('remember');
     let valid = true;
 
     if (!username.value.trim()) {
@@ -49,109 +73,114 @@ if (loginForm) {
       showError('loginPasswordError', false);
     }
 
-    if (valid) {
-    const formData = new FormData();
-    formData.append('username', username.value.trim());
-    formData.append('password', password.value.trim());
+    if (!valid) return;
 
-    fetch('login.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            window.location.href = 'index.php';
-        } else {
-            alert('Login failed: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error logging in:', error);
-        alert('An error occurred while logging in.');
+    setSubmitting(submitBtn, true, 'Login');
+    const { ok, data } = await postJSON('backend/api/login.php', {
+      username: username.value.trim(),
+      password: password.value,
+      remember: remember ? remember.checked : false
     });
-}
+    setSubmitting(submitBtn, false, 'Login');
+
+    if (ok && data.success) {
+      window.location.href = data.redirect || 'index.php';
+      return;
+    }
+
+    showError('loginPasswordError', true, data.message || 'That username or password is not right.');
   });
 }
 
 const signupForm = document.getElementById('signupForm');
 if (signupForm) {
-  signupForm.addEventListener('submit', (e) => {
+  const submitBtn = signupForm.querySelector('.login-btn');
+  const fieldIds = ['fullNameError', 'signupUsernameError', 'emailError', 'signupPhoneError', 'signupPasswordError', 'termsError'];
+
+  signupForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fullName = document.getElementById('fullName');
     const username = document.getElementById('signupUsername');
     const email = document.getElementById('email');
+    const phone = document.getElementById('signupPhone');
     const password = document.getElementById('signupPassword');
     const terms = document.getElementById('terms');
     let valid = true;
 
+    clearErrors(fieldIds);
+
     if (!fullName.value.trim()) {
       showError('fullNameError', true);
       valid = false;
-    } else {
-      showError('fullNameError', false);
     }
 
     if (!username.value.trim()) {
       showError('signupUsernameError', true);
       valid = false;
-    } else {
-      showError('signupUsernameError', false);
     }
 
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailPattern.test(email.value.trim())) {
       showError('emailError', true);
       valid = false;
-    } else {
-      showError('emailError', false);
+    }
+
+    const phoneDigits = phone.value.replace(/\D/g, '');
+    if (phoneDigits.length < 9) {
+      showError('signupPhoneError', true);
+      valid = false;
     }
 
     if (password.value.trim().length < 6) {
       showError('signupPasswordError', true);
       valid = false;
-    } else {
-      showError('signupPasswordError', false);
     }
 
     if (!terms.checked) {
       showError('termsError', true);
       valid = false;
-    } else {
-      showError('termsError', false);
     }
 
-    if (valid) {
-      const formData = new FormData();
-formData.append('fullName', fullName.value.trim());
-formData.append('username', username.value.trim());
-formData.append('email', email.value.trim());
-formData.append('password', password.value.trim());
+    if (!valid) return;
 
-fetch('signup.php', {
-    method: 'POST',
-    body: formData
-})
-.then(response => response.json())
-.then(data => {
-    if (data.success) {
-        alert('Account created successfully!');
-        window.location.href = 'login.html';
-    } else {
-        alert('Error: ' + data.message);
+    setSubmitting(submitBtn, true, 'Create Account');
+    const { ok, data } = await postJSON('backend/api/register.php', {
+      full_name: fullName.value.trim(),
+      username: username.value.trim(),
+      email: email.value.trim(),
+      phone: phone ? phone.value.trim() : '',
+      password: password.value,
+      terms: terms.checked
+    });
+    setSubmitting(submitBtn, false, 'Create Account');
+
+    if (ok && data.success) {
+      window.location.href = data.redirect || 'index.php';
+      return;
     }
-})
-.catch(error => {
-    console.error('Error submitting form:', error);
-    alert('An error occurred while creating your account.');
-});
+
+    if (data.errors) {
+      const map = {
+        full_name: 'fullNameError',
+        username: 'signupUsernameError',
+        email: 'emailError',
+        password: 'signupPasswordError',
+        terms: 'termsError'
+      };
+      Object.keys(data.errors).forEach(key => {
+        if (map[key]) showError(map[key], true, data.errors[key]);
+      });
+    } else {
+      showError('emailError', true, data.message || 'Something went wrong. Please try again.');
     }
   });
 }
 
 const forgotForm = document.getElementById('forgotForm');
 if (forgotForm) {
-  forgotForm.addEventListener('submit', (e) => {
+  const submitBtn = forgotForm.querySelector('.login-btn');
+
+  forgotForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const contact = document.getElementById('resetContact');
 
@@ -161,13 +190,32 @@ if (forgotForm) {
     }
     showError('resetContactError', false);
 
-    alert('Once the SafariTrak system is connected, a reset link will be sent to ' + contact.value.trim() + '.');
+    setSubmitting(submitBtn, true, 'Send reset link');
+    const { data } = await postJSON('backend/api/forgot-password.php', {
+      contact: contact.value.trim()
+    });
+    setSubmitting(submitBtn, false, 'Send reset link');
+
+    const subtitle = document.querySelector('.subtitle');
+    if (subtitle) {
+      subtitle.textContent = data.message || 'If that account exists, a reset link has been sent.';
+    }
+    forgotForm.style.display = 'none';
+
+    if (data.dev_reset_link) {
+      const devNote = document.createElement('p');
+      devNote.className = 'signup-text';
+      devNote.innerHTML = 'Dev mode: <a href="' + data.dev_reset_link + '">open your reset link</a>';
+      forgotForm.insertAdjacentElement('afterend', devNote);
+    }
   });
 }
 
 const resetForm = document.getElementById('resetForm');
 if (resetForm) {
-  resetForm.addEventListener('submit', (e) => {
+  const submitBtn = resetForm.querySelector('.login-btn');
+
+  resetForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const newPassword = document.getElementById('newPassword');
     const confirmPassword = document.getElementById('confirmPassword');
@@ -187,8 +235,28 @@ if (resetForm) {
       showError('confirmPasswordError', false);
     }
 
-    if (valid) {
-      alert('Once the SafariTrak system is connected, your password will be updated and you can log in with it.');
+    if (!valid) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+
+    if (!token) {
+      showError('confirmPasswordError', true, 'This reset link is missing its token. Request a new one.');
+      return;
     }
+
+    setSubmitting(submitBtn, true, 'Update password');
+    const { ok, data } = await postJSON('backend/api/reset-password.php', {
+      token,
+      password: newPassword.value
+    });
+    setSubmitting(submitBtn, false, 'Update password');
+
+    if (ok && data.success) {
+      window.location.href = data.redirect || 'login.html';
+      return;
+    }
+
+    showError('confirmPasswordError', true, data.message || 'This reset link is invalid or has expired.');
   });
 }
