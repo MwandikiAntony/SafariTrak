@@ -1,7 +1,7 @@
 <?php
-session_start();
-require_once 'db.php';
-session_unset();
-session_destroy();
+require __DIR__ . '/backend/includes/session.php';
+
+st_logout();
+
 header('Location: login.html');
 exit;

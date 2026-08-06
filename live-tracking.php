@@ -1,7 +1,5 @@
 <?php
-session_start();
-require_once 'db.php';
-$userName = $_SESSION['user_name'] ?? 'Traveler';
+require __DIR__ . '/backend/includes/auth-guard.php';
 ?>
 <!doctype html>
 <html lang="en">
@@ -29,7 +27,7 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
   <div class="bottom">
     <a href="settings.php"><i class="fa-solid fa-gear"></i>Settings</a>
     <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span>A</span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
+    <div class="account"><span><?= htmlspecialchars(strtoupper(substr($userName, 0, 1))) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
   </div>
 </aside>
 
@@ -50,7 +48,7 @@ $userName = $_SESSION['user_name'] ?? 'Traveler';
         </div>
       </div>
     </div>
-    <div class="avatar">A</div>
+    <div class="avatar"><?= htmlspecialchars(strtoupper(substr($userName, 0, 1))) ?></div>
   </div>
 </header>
 
