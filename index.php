@@ -1,5 +1,25 @@
 <?php
 require __DIR__ . '/backend/includes/auth-guard.php';
+
+$db = safaritrak_db();
+
+$activeStmt = $db->prepare('SELECT * FROM journeys WHERE user_id = ? AND status = "active" LIMIT 1');
+$activeStmt->execute([$currentUser['id']]);
+$activeJourney = $activeStmt->fetch();
+
+$recentStmt = $db->prepare('SELECT * FROM journeys WHERE user_id = ? AND status != "active" ORDER BY started_at DESC LIMIT 3');
+$recentStmt->execute([$currentUser['id']]);
+$recentJourneys = $recentStmt->fetchAll();
+
+$contactsPreviewStmt = $db->prepare(
+    'SELECT tc.id, COALESCE(u.full_name, tc.invite_name) AS display_name, tc.status
+     FROM trusted_contacts tc
+     LEFT JOIN users u ON u.id = tc.contact_user_id
+     WHERE tc.owner_id = ? AND tc.status = "confirmed"
+     ORDER BY tc.created_at DESC LIMIT 3'
+);
+$contactsPreviewStmt->execute([$currentUser['id']]);
+$contactsPreview = $contactsPreviewStmt->fetchAll();
 ?>
 <!doctype html>
 <html lang="en">
@@ -78,25 +98,39 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 </section>
 
 <section class="card journey">
-  <div class="card-head"><div><label>JOURNEY STATUS</label><h3>Active journey</h3></div><span class="status">● Not travelling</span></div>
+  <div class="card-head"><div><label>JOURNEY STATUS</label><h3>Active journey</h3></div><span class="status"><?= $activeJourney ? '● Travelling' : '● Not travelling' ?></span></div>
+  <?php if ($activeJourney): ?>
+  <div class="empty" style="border-style:solid;border-color:var(--line)">
+    <i class="fa-solid fa-route"></i>
+    <div><b><?= htmlspecialchars($activeJourney['start_label']) ?> &rarr; <?= htmlspecialchars($activeJourney['end_label']) ?></b><p>Started <?= (new DateTime($activeJourney['started_at']))->format('g:i A') ?><?= $activeJourney['distance_km'] !== null ? ' &middot; ' . number_format((float) $activeJourney['distance_km'], 1) . ' km' : '' ?></p></div>
+    <a class="empty-link" href="live-tracking.php">View live map</a>
+  </div>
+  <?php else: ?>
   <div class="empty"><i class="fa-solid fa-road"></i><div><b>No active journey</b><p>Start a journey to see live tracking, ETA and safety information here.</p></div><a class="empty-link" href="start-journey.php">Start a journey</a></div>
+  <?php endif; ?>
 </section>
 
 <section class="lower">
   <div class="card">
     <div class="card-head"><div><label>HISTORY</label><h3>Recent journeys</h3></div><a href="my-journeys.php">View all</a></div>
     <div class="rows">
-      <a href="my-journeys.php"><i class="fa-solid fa-check"></i><div><b>Nairobi → Meru</b><small>Completed • Yesterday</small></div><strong>263 km</strong></a>
-      <a href="my-journeys.php"><i class="fa-solid fa-check"></i><div><b>Nairobi → Nakuru</b><small>Completed • 29 Jul</small></div><strong>156 km</strong></a>
-      <a href="my-journeys.php"><i class="fa-solid fa-check"></i><div><b>Meru → Nairobi</b><small>Completed • 25 Jul</small></div><strong>263 km</strong></a>
+      <?php if (empty($recentJourneys)): ?>
+      <p class="hint" style="padding:16px 21px;color:var(--muted);font-size:11px">No journeys yet. Once you travel, they will show up here.</p>
+      <?php endif; ?>
+      <?php foreach ($recentJourneys as $rj): ?>
+      <a href="my-journeys.php"><i class="fa-solid <?= $rj['status'] === 'cancelled' ? 'fa-xmark' : 'fa-check' ?>"></i><div><b><?= htmlspecialchars($rj['start_label']) ?> &rarr; <?= htmlspecialchars($rj['end_label']) ?></b><small><?= ucfirst($rj['status']) ?> &middot; <?= (new DateTime($rj['started_at']))->format('j M') ?></small></div><strong><?= $rj['distance_km'] !== null ? number_format((float) $rj['distance_km'], 1) . ' km' : '-' ?></strong></a>
+      <?php endforeach; ?>
     </div>
   </div>
   <div class="card">
     <div class="card-head"><div><label>PEOPLE</label><h3>Trusted contacts</h3></div><a href="trusted-contacts.php">Manage</a></div>
     <div class="rows contacts">
-      <div><span class="person">JM</span><div><b>John Mwangi</b><small>● Available</small></div><a class="msg-link" href="messages.php"><i class="fa-regular fa-message"></i></a></div>
-      <div><span class="person">MW</span><div><b>Mary Wanjiku</b><small>● Available</small></div><a class="msg-link" href="messages.php"><i class="fa-regular fa-message"></i></a></div>
-      <div><span class="person">PK</span><div><b>Peter Kariuki</b><small>● Offline</small></div><a class="msg-link" href="messages.php"><i class="fa-regular fa-message"></i></a></div>
+      <?php if (empty($contactsPreview)): ?>
+      <p class="hint" style="padding:16px 21px;color:var(--muted);font-size:11px">No trusted contacts yet. <a href="trusted-contacts.php" style="color:var(--p);font-weight:700;text-decoration:none">Add one</a> so someone can watch your journeys.</p>
+      <?php endif; ?>
+      <?php foreach ($contactsPreview as $cp): ?>
+      <div><span class="person"><?= htmlspecialchars(st_initials($cp['display_name'])) ?></span><div><b><?= htmlspecialchars($cp['display_name']) ?></b><small>&#9679; Confirmed</small></div><a class="msg-link" href="messages.php"><i class="fa-regular fa-message"></i></a></div>
+      <?php endforeach; ?>
     </div>
   </div>
 </section>
@@ -150,3 +184,4 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 <script src="dashboard-map.js"></script>
 </body>
 </html>
+
