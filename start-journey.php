@@ -91,7 +91,7 @@ require __DIR__ . '/backend/includes/auth-guard.php';
       <textarea id="journeyNote" rows="3" placeholder="e.g. Travelling for a family visit, will call once I arrive"></textarea>
     </div>
 
-    <div class="form-field full">
+     <div class="form-field full">
       <label>Share this journey with</label>
       <div class="share-contacts sj-share-contacts">
         <div class="share-contact-row"><span class="person">JM</span><span>John Mwangi</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
