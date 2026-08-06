@@ -8,6 +8,15 @@ function st_avatar_inner(array $user): string {
     return htmlspecialchars($initial);
 }
 
+function st_initials(string $name): string {
+    $parts = preg_split('/\s+/', trim($name));
+    $letters = '';
+    foreach (array_slice($parts, 0, 2) as $p) {
+        $letters .= strtoupper(substr($p, 0, 1));
+    }
+    return $letters ?: '?';
+}
+
 function st_greeting(): string {
     $hour = (int) date('G');
 
