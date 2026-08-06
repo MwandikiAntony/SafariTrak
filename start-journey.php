@@ -93,12 +93,15 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 
     <div class="form-field full">
       <label>Share this journey with</label>
-      <div class="share-contacts">
+      <div class="share-contacts sj-share-contacts">
         <div class="share-contact-row"><span class="person">JM</span><span>John Mwangi</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
         <div class="share-contact-row"><span class="person">MW</span><span>Mary Wanjiku</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
         <div class="share-contact-row"><span class="person">PK</span><span>Peter Kariuki</span><label class="toggle"><input type="checkbox"><span></span></label></div>
       </div>
     </div>
+    <style>
+      .sj-share-contacts .person{width:22px;height:22px;font-size:7px;flex:0 0 22px}
+    </style>
 
     <div class="form-field full" style="padding-top:4px">
       <div class="toggle-row" style="border-top:0;padding-top:0">
