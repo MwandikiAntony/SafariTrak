@@ -43,7 +43,7 @@ $incoming = $incomingStmt->fetchAll();
     <a href="my-journeys.php"><i class="fa-solid fa-map-location-dot"></i>My Journeys</a>
     <a href="live-tracking.php"><i class="fa-solid fa-location-crosshairs"></i>Live Tracking</a>
     <a href="places.php"><i class="fa-solid fa-map-pin"></i>Places</a>
-    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages</a>
+    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages<?= $unreadConversationCount > 0 ? " <em>" . $unreadConversationCount . "</em>" : "" ?></a>
     <a class="active" href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Trusted Contacts</a>
     <a href="safety.php"><i class="fa-solid fa-shield-halved"></i>Safety</a>
   </nav>
