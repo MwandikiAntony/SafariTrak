@@ -40,7 +40,7 @@ $contactsPreview = $contactsPreviewStmt->fetchAll();
     <a href="my-journeys.php"><i class="fa-solid fa-map-location-dot"></i>My Journeys</a>
     <a href="live-tracking.php"><i class="fa-solid fa-location-crosshairs"></i>Live Tracking</a>
     <a href="places.php"><i class="fa-solid fa-map-pin"></i>Places</a>
-    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages <em>3</em></a>
+    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages<?= $unreadConversationCount > 0 ? " <em>" . $unreadConversationCount . "</em>" : "" ?></a>
     <a href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Trusted Contacts</a>
     <a href="safety.php"><i class="fa-solid fa-shield-halved"></i>Safety</a>
   </nav>
@@ -91,9 +91,9 @@ $contactsPreview = $contactsPreviewStmt->fetchAll();
   <div class="card actions">
     <div class="card-head"><div><label>QUICK ACTIONS</label><h3>What do you need?</h3></div></div>
     <a class="action primary" href="start-journey.php"><i class="fa-solid fa-route"></i><span><b>Start Journey</b><small>Plan and begin a trip</small></span><strong>›</strong></a>
-    <button class="action" type="button" data-open-modal="shareModal"><i class="fa-solid fa-location-arrow"></i><span><b>Share Location</b><small>Let someone know where you are</small></span><strong>›</strong></button>
+    <a class="action" href="start-journey.php"><i class="fa-solid fa-location-arrow"></i><span><b>Share Location</b><small>Let someone know where you are</small></span><strong>›</strong></a>
     <a class="action" href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i><span><b>Trusted Contacts</b><small>Manage people you trust</small></span><strong>›</strong></a>
-    <button class="action sos" type="button" data-open-modal="sosModal"><i class="fa-solid fa-triangle-exclamation"></i><span><b>Emergency / SOS</b><small>Get help when you need it</small></span><strong>›</strong></button>
+    <a class="action sos" href="safety.php"><i class="fa-solid fa-triangle-exclamation"></i><span><b>Emergency / SOS</b><small>Get help when you need it</small></span><strong>›</strong></a>
   </div>
 </section>
 
@@ -141,47 +141,9 @@ $contactsPreview = $contactsPreviewStmt->fetchAll();
 </main>
 </div>
 
-<div class="modal-overlay" id="shareModal">
-  <div class="modal">
-    <div class="modal-head">
-      <div><h3>Share your location</h3><p>Choose who can see where you are right now.</p></div>
-      <button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <div class="share-contacts">
-        <div class="share-contact-row"><span class="person">JM</span><span>John Mwangi</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
-        <div class="share-contact-row"><span class="person">MW</span><span>Mary Wanjiku</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
-        <div class="share-contact-row"><span class="person">PK</span><span>Peter Kariuki</span><label class="toggle"><input type="checkbox"><span></span></label></div>
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button type="button" class="ghost" data-close-modal>Cancel</button>
-      <button type="button" class="primary" onclick="alert('Once the backend is connected, this will start sharing your live location with the people you picked.')">Start sharing</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="sosModal">
-  <div class="modal sos">
-    <div class="modal-head">
-      <div class="sos-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
-      <button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <b>Send an SOS alert?</b>
-      <p>This will notify all your trusted contacts with your current location and let them know you need help. Only use this if you are in real danger or need urgent assistance.</p>
-    </div>
-    <div class="modal-actions">
-      <button type="button" class="ghost" data-close-modal>Cancel</button>
-      <button type="button" class="danger" onclick="alert('Once the backend is connected, this will send an emergency alert with your location to your trusted contacts.')">Send SOS</button>
-    </div>
-  </div>
-</div>
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="dashboard.js"></script>
 <script src="notifications-widget.js"></script>
 <script src="dashboard-map.js"></script>
 </body>
 </html>
-
