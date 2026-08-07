@@ -19,7 +19,7 @@ require __DIR__ . '/backend/includes/auth-guard.php';
     <a href="my-journeys.php"><i class="fa-solid fa-map-location-dot"></i>My Journeys</a>
     <a href="live-tracking.php"><i class="fa-solid fa-location-crosshairs"></i>Live Tracking</a>
     <a href="places.php"><i class="fa-solid fa-map-pin"></i>Places</a>
-    <a class="active" href="messages.php"><i class="fa-regular fa-message"></i>Messages <em>3</em></a>
+    <a class="active" href="messages.php"><i class="fa-regular fa-message"></i>Messages<?= $unreadConversationCount > 0 ? " <em>" . $unreadConversationCount . "</em>" : "" ?></a>
     <a href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Trusted Contacts</a>
     <a href="safety.php"><i class="fa-solid fa-shield-halved"></i>Safety</a>
   </nav>
@@ -53,34 +53,20 @@ require __DIR__ . '/backend/includes/auth-guard.php';
   <div class="chat-shell">
 
     <div class="chat-list" id="chatList">
-      <div class="chat-search"><input type="text" placeholder="Search conversations..."></div>
-
-      <div class="chat-item active" data-chat="jm">
-        <span class="person">JM</span>
-        <div class="meta"><b>John Mwangi</b><small>Sure, I can see you on the map now</small></div>
+      <div class="chat-search"><input type="text" id="chatSearch" placeholder="Search conversations..."></div>
+      <div id="chatListItems">
+        <p class="notif-empty">Loading...</p>
       </div>
-
-      <div class="chat-item" data-chat="mw">
-        <span class="person">MW</span>
-        <div class="meta"><b>Mary Wanjiku</b><small>Let me know when you arrive</small></div>
-      </div>
-
-      <div class="chat-item" data-chat="pk">
-        <span class="person">PK</span>
-        <div class="meta"><b>Peter Kariuki</b><small>Safe travels!</small></div>
-      </div>
-
     </div>
 
     <div class="chat-panel">
       <div class="chat-head" id="chatHead">
-        <span class="person">JM</span>
-        <div><b>John Mwangi</b><small>&#9679; Watching your journey</small></div>
+        <p class="notif-empty" style="padding:0">Select a conversation</p>
       </div>
 
       <div class="chat-messages" id="chatMessages"></div>
 
-      <form class="chat-input" id="chatForm">
+      <form class="chat-input" id="chatForm" style="display:none">
         <input type="text" id="chatInput" placeholder="Type a message..." autocomplete="off">
         <button type="submit"><i class="fa-solid fa-paper-plane"></i></button>
       </form>
