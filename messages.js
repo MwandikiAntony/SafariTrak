@@ -184,8 +184,7 @@ document.getElementById('chatSearch')?.addEventListener('input', (e) => {
 });
 
 loadConversations();
-let conversations = [];
-let activeUserId = null;
+
 
 function relativeChatTime(dateString) {
   if (!dateString) return '';
