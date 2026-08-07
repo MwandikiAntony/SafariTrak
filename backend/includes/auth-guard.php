@@ -21,3 +21,7 @@ if (!$currentUser) {
 }
 
 $userName = $currentUser['full_name'];
+
+$unreadMsgStmt = safaritrak_db()->prepare('SELECT COUNT(DISTINCT sender_id) FROM messages WHERE receiver_id = ? AND read_at IS NULL');
+$unreadMsgStmt->execute([$safaritrakUserId]);
+$unreadConversationCount = (int) $unreadMsgStmt->fetchColumn();
