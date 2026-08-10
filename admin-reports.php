@@ -1,6 +1,68 @@
 <?php
-require __DIR__ . '/backend/includes/auth-guard.php';
-$orgName = 'Meru Transport Sacco';
+require __DIR__ . '/backend/includes/org-guard.php';
+
+if (!$myOrg) {
+    header('Location: admin-dashboard.php');
+    exit;
+}
+
+$db = safaritrak_db();
+$orgId = $myOrg['id'];
+$travelersSub = 'SELECT user_id FROM organization_travelers WHERE organization_id = ? AND status = "active"';
+
+$totalDistanceStmt = $db->prepare("SELECT COALESCE(SUM(distance_km), 0) FROM journeys WHERE status = 'completed' AND user_id IN ($travelersSub)");
+$totalDistanceStmt->execute([$orgId]);
+$totalDistance = (float) $totalDistanceStmt->fetchColumn();
+
+$journeysCompletedStmt = $db->prepare("SELECT COUNT(*) FROM journeys WHERE status = 'completed' AND user_id IN ($travelersSub) AND started_at >= DATE_FORMAT(NOW(), '%Y-%m-01')");
+$journeysCompletedStmt->execute([$orgId]);
+$journeysThisMonth = (int) $journeysCompletedStmt->fetchColumn();
+
+$avgDurationStmt = $db->prepare("SELECT AVG(TIMESTAMPDIFF(MINUTE, started_at, ended_at)) FROM journeys WHERE status = 'completed' AND ended_at IS NOT NULL AND user_id IN ($travelersSub)");
+$avgDurationStmt->execute([$orgId]);
+$avgMinutes = (float) $avgDurationStmt->fetchColumn();
+
+$totalJourneysStmt = $db->prepare("SELECT COUNT(*) FROM journeys WHERE status IN ('completed','cancelled') AND user_id IN ($travelersSub)");
+$totalJourneysStmt->execute([$orgId]);
+$totalJourneysAllTime = (int) $totalJourneysStmt->fetchColumn();
+
+$incidentJourneysStmt = $db->prepare(
+    "SELECT COUNT(DISTINCT j.id) FROM journeys j
+     WHERE j.user_id IN ($travelersSub) AND j.status IN ('completed','cancelled')
+     AND EXISTS (SELECT 1 FROM sos_alerts sa WHERE sa.journey_id = j.id)"
+);
+$incidentJourneysStmt->execute([$orgId]);
+$incidentJourneys = (int) $incidentJourneysStmt->fetchColumn();
+$safetyScore = $totalJourneysAllTime > 0 ? round((($totalJourneysAllTime - $incidentJourneys) / $totalJourneysAllTime) * 100) : 100;
+
+$topTravelersStmt = $db->prepare(
+    "SELECT u.full_name, u.id AS user_id,
+            COUNT(j.id) AS journey_count,
+            COALESCE(SUM(j.distance_km), 0) AS total_distance,
+            (SELECT COUNT(*) FROM sos_alerts sa WHERE sa.user_id = u.id) AS sos_count
+     FROM organization_travelers ot
+     JOIN users u ON u.id = ot.user_id
+     LEFT JOIN journeys j ON j.user_id = u.id AND j.status = 'completed'
+     WHERE ot.organization_id = ? AND ot.status = 'active'
+     GROUP BY u.id, u.full_name
+     ORDER BY journey_count DESC, total_distance DESC
+     LIMIT 5"
+);
+$topTravelersStmt->execute([$orgId]);
+$topTravelers = $topTravelersStmt->fetchAll();
+
+$monthlyStmt = $db->prepare(
+    "SELECT DATE_FORMAT(started_at, '%Y-%m') AS ym, DATE_FORMAT(started_at, '%M %Y') AS label,
+            COUNT(*) AS journeys, COALESCE(SUM(distance_km), 0) AS distance,
+            (SELECT COUNT(*) FROM sos_alerts sa WHERE sa.user_id IN ($travelersSub) AND DATE_FORMAT(sa.created_at, '%Y-%m') = DATE_FORMAT(j.started_at, '%Y-%m')) AS sos
+     FROM journeys j
+     WHERE j.user_id IN ($travelersSub) AND j.status = 'completed'
+     GROUP BY ym, label
+     ORDER BY ym DESC
+     LIMIT 6"
+);
+$monthlyStmt->execute([$orgId, $orgId]);
+$monthly = $monthlyStmt->fetchAll();
 ?>
 <!doctype html>
 <html lang="en">
@@ -24,7 +86,7 @@ $orgName = 'Meru Transport Sacco';
   <div class="bottom">
     <a href="index.php"><i class="fa-solid fa-arrow-right-arrow-left"></i>Switch to traveler view</a>
     <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span>O</span><div><b><?= htmlspecialchars($orgName) ?></b><small>Organization admin</small></div></div>
+    <div class="account"><span>O</span><div><b><?= htmlspecialchars($myOrg['name']) ?></b><small>Organization admin</small></div></div>
   </div>
 </aside>
 
@@ -38,30 +100,35 @@ $orgName = 'Meru Transport Sacco';
 <div class="content">
 
 <div class="page-head">
-  <div><h2>How your organization travelled this month</h2><p>A summary you can share with leadership or use for planning.</p></div>
-  <button type="button" class="btn-ghost" onclick="alert('Once the backend is connected, this will export the report as a spreadsheet.')"><i class="fa-solid fa-file-arrow-down"></i>Export report</button>
+  <div><h2>How your organization travelled</h2><p>A summary you can share with leadership or use for planning.</p></div>
 </div>
 
 <div class="stat-grid">
-  <div class="stat-card"><label>TOTAL DISTANCE</label><strong>18,420 km</strong><small>Across all travelers this month</small></div>
-  <div class="stat-card"><label>JOURNEYS COMPLETED</label><strong>486</strong><small>Up 12% from last month</small></div>
-  <div class="stat-card"><label>AVERAGE JOURNEY TIME</label><strong>2h 45m</strong><small>Door to door</small></div>
-  <div class="stat-card"><label>SAFETY SCORE</label><strong>98%</strong><small>Journeys with no incident</small></div>
+  <div class="stat-card"><label>TOTAL DISTANCE</label><strong><?= number_format($totalDistance, 0) ?> km</strong><small>All completed journeys</small></div>
+  <div class="stat-card"><label>JOURNEYS THIS MONTH</label><strong><?= $journeysThisMonth ?></strong><small>Completed</small></div>
+  <div class="stat-card"><label>AVERAGE JOURNEY TIME</label><strong><?= $avgMinutes > 0 ? floor($avgMinutes / 60) . 'h ' . round($avgMinutes % 60) . 'm' : 'No data yet' ?></strong><small>Door to door</small></div>
+  <div class="stat-card"><label>SAFETY SCORE</label><strong><?= $safetyScore ?>%</strong><small>Journeys with no SOS alert</small></div>
 </div>
 
 <div class="card">
-  <div class="card-head"><div><label>MOST ACTIVE TRAVELERS</label><h3>Top 5 this month</h3></div></div>
+  <div class="card-head"><div><label>MOST ACTIVE TRAVELERS</label><h3>By completed journeys</h3></div></div>
   <div class="data-table-wrap">
     <table class="data-table">
       <thead>
-        <tr><th>Traveler</th><th>Journeys</th><th>Distance</th><th>Safety score</th></tr>
+        <tr><th>Traveler</th><th>Journeys</th><th>Distance</th><th>SOS alerts</th></tr>
       </thead>
       <tbody>
-        <tr><td><div class="table-person"><span class="person">GN</span>Grace Njeri</div></td><td>47</td><td>2,140 km</td><td>100%</td></tr>
-        <tr><td><div class="table-person"><span class="person">JK</span>James Kariuki</div></td><td>34</td><td>1,880 km</td><td>97%</td></tr>
-        <tr><td><div class="table-person"><span class="person">SW</span>Sarah Wambui</div></td><td>21</td><td>1,120 km</td><td>100%</td></tr>
-        <tr><td><div class="table-person"><span class="person">DM</span>David Mutuku</div></td><td>12</td><td>640 km</td><td>92%</td></tr>
-        <tr><td><div class="table-person"><span class="person">PK</span>Peter Kamau</div></td><td>10</td><td>510 km</td><td>100%</td></tr>
+        <?php if (empty($topTravelers)): ?>
+        <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px 0">No journey activity yet.</td></tr>
+        <?php endif; ?>
+        <?php foreach ($topTravelers as $tt): ?>
+        <tr>
+          <td><div class="table-person"><span class="person"><?= htmlspecialchars(st_initials($tt['full_name'])) ?></span><?= htmlspecialchars($tt['full_name']) ?></div></td>
+          <td><?= (int) $tt['journey_count'] ?></td>
+          <td><?= number_format((float) $tt['total_distance'], 0) ?> km</td>
+          <td><?= (int) $tt['sos_count'] ?></td>
+        </tr>
+        <?php endforeach; ?>
       </tbody>
     </table>
   </div>
@@ -75,12 +142,17 @@ $orgName = 'Meru Transport Sacco';
         <tr><th>Month</th><th>Journeys</th><th>Distance</th><th>SOS alerts</th></tr>
       </thead>
       <tbody>
-        <tr><td>March 2026</td><td>398</td><td>15,210 km</td><td>2</td></tr>
-        <tr><td>April 2026</td><td>412</td><td>16,040 km</td><td>0</td></tr>
-        <tr><td>May 2026</td><td>435</td><td>16,890 km</td><td>1</td></tr>
-        <tr><td>June 2026</td><td>401</td><td>15,660 km</td><td>0</td></tr>
-        <tr><td>July 2026</td><td>434</td><td>16,980 km</td><td>1</td></tr>
-        <tr><td>August 2026</td><td>486</td><td>18,420 km</td><td>1</td></tr>
+        <?php if (empty($monthly)): ?>
+        <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px 0">No completed journeys yet.</td></tr>
+        <?php endif; ?>
+        <?php foreach ($monthly as $m): ?>
+        <tr>
+          <td><?= htmlspecialchars($m['label']) ?></td>
+          <td><?= (int) $m['journeys'] ?></td>
+          <td><?= number_format((float) $m['distance'], 0) ?> km</td>
+          <td><?= (int) $m['sos'] ?></td>
+        </tr>
+        <?php endforeach; ?>
       </tbody>
     </table>
   </div>

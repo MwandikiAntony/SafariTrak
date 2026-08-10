@@ -1,6 +1,80 @@
 <?php
-require __DIR__ . '/backend/includes/auth-guard.php';
-$orgName = 'Meru Transport Sacco';
+require __DIR__ . '/backend/includes/org-guard.php';
+
+if ($myOrg) {
+    $db = safaritrak_db();
+    $orgId = $myOrg['id'];
+
+    $totalTravelersStmt = $db->prepare('SELECT COUNT(*) FROM organization_travelers WHERE organization_id = ? AND status = "active"');
+    $totalTravelersStmt->execute([$orgId]);
+    $totalTravelers = (int) $totalTravelersStmt->fetchColumn();
+
+    $addedThisMonthStmt = $db->prepare('SELECT COUNT(*) FROM organization_travelers WHERE organization_id = ? AND status = "active" AND joined_at >= DATE_FORMAT(NOW(), "%Y-%m-01")');
+    $addedThisMonthStmt->execute([$orgId]);
+    $addedThisMonth = (int) $addedThisMonthStmt->fetchColumn();
+
+    $activeJourneysStmt = $db->prepare('SELECT COUNT(*) FROM journeys WHERE status = "active" AND user_id IN (SELECT user_id FROM organization_travelers WHERE organization_id = ? AND status = "active")');
+    $activeJourneysStmt->execute([$orgId]);
+    $activeJourneys = (int) $activeJourneysStmt->fetchColumn();
+
+    $upcomingGroupsStmt = $db->prepare('SELECT COUNT(*) FROM group_journeys WHERE status = "upcoming" AND organizer_id IN (SELECT user_id FROM organization_travelers WHERE organization_id = ? AND status = "active")');
+    $upcomingGroupsStmt->execute([$orgId]);
+    $upcomingGroups = (int) $upcomingGroupsStmt->fetchColumn();
+
+    $sosThisMonthStmt = $db->prepare('SELECT COUNT(*) FROM sos_alerts WHERE created_at >= DATE_FORMAT(NOW(), "%Y-%m-01") AND user_id IN (SELECT user_id FROM organization_travelers WHERE organization_id = ? AND status = "active")');
+    $sosThisMonthStmt->execute([$orgId]);
+    $sosThisMonth = (int) $sosThisMonthStmt->fetchColumn();
+
+    $sosActiveStmt = $db->prepare('SELECT COUNT(*) FROM sos_alerts WHERE status = "active" AND user_id IN (SELECT user_id FROM organization_travelers WHERE organization_id = ? AND status = "active")');
+    $sosActiveStmt->execute([$orgId]);
+    $sosActive = (int) $sosActiveStmt->fetchColumn();
+
+    $activityStmt = $db->prepare(
+        'SELECT * FROM (
+            SELECT "journey_started" AS etype, j.started_at AS etime, u.full_name AS name1, j.start_label AS label1, j.end_label AS label2, NULL AS num
+            FROM journeys j JOIN users u ON u.id = j.user_id
+            WHERE j.user_id IN (SELECT user_id FROM organization_travelers WHERE organization_id = ? AND status = "active")
+
+            UNION ALL
+
+            SELECT "journey_completed", j.ended_at, u.full_name, j.start_label, j.end_label, NULL
+            FROM journeys j JOIN users u ON u.id = j.user_id
+            WHERE j.status = "completed" AND j.user_id IN (SELECT user_id FROM organization_travelers WHERE organization_id = ? AND status = "active")
+
+            UNION ALL
+
+            SELECT "group_created", gj.created_at, u.full_name, gj.title, gj.destination_label, (SELECT COUNT(*) FROM group_members gm WHERE gm.group_journey_id = gj.id)
+            FROM group_journeys gj JOIN users u ON u.id = gj.organizer_id
+            WHERE gj.organizer_id IN (SELECT user_id FROM organization_travelers WHERE organization_id = ? AND status = "active")
+
+            UNION ALL
+
+            SELECT "sos_triggered", sa.created_at, u.full_name, NULL, NULL, NULL
+            FROM sos_alerts sa JOIN users u ON u.id = sa.user_id
+            WHERE sa.user_id IN (SELECT user_id FROM organization_travelers WHERE organization_id = ? AND status = "active")
+
+            UNION ALL
+
+            SELECT "sos_resolved", sa.resolved_at, u.full_name, NULL, NULL, NULL
+            FROM sos_alerts sa JOIN users u ON u.id = sa.user_id
+            WHERE sa.status = "resolved" AND sa.user_id IN (SELECT user_id FROM organization_travelers WHERE organization_id = ? AND status = "active")
+        ) activity
+        WHERE etime IS NOT NULL
+        ORDER BY etime DESC
+        LIMIT 8'
+    );
+    $activityStmt->execute([$orgId, $orgId, $orgId, $orgId, $orgId]);
+    $activity = $activityStmt->fetchAll();
+}
+
+function admin_relative_time(string $dt): string {
+    $diff = time() - strtotime($dt);
+    if ($diff < 60) return 'just now';
+    if ($diff < 3600) return floor($diff / 60) . ' minutes ago';
+    if ($diff < 86400) return floor($diff / 3600) . ' hours ago';
+    if ($diff < 172800) return 'yesterday';
+    return floor($diff / 86400) . ' days ago';
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -17,67 +91,95 @@ $orgName = 'Meru Transport Sacco';
   <div class="brand"><div class="logo"><i class="fa-solid fa-route"></i></div><div><b>SafariTrak</b><small>Travel smarter</small><span class="org-badge">ORGANIZATION</span></div></div>
   <nav>
     <a class="active" href="admin-dashboard.php"><i class="fa-solid fa-grid-2"></i>Overview</a>
+    <?php if ($myOrg): ?>
     <a href="admin-travelers.php"><i class="fa-solid fa-users"></i>Travelers</a>
     <a href="admin-groups.php"><i class="fa-solid fa-user-group"></i>Group Journeys</a>
     <a href="admin-reports.php"><i class="fa-solid fa-chart-simple"></i>Reports</a>
+    <?php endif; ?>
   </nav>
   <div class="bottom">
     <a href="index.php"><i class="fa-solid fa-arrow-right-arrow-left"></i>Switch to traveler view</a>
     <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span>O</span><div><b><?= htmlspecialchars($orgName) ?></b><small>Organization admin</small></div></div>
+    <div class="account"><span>O</span><div><b><?= htmlspecialchars($myOrg['name'] ?? $userName) ?></b><small>Organization admin</small></div></div>
   </div>
 </aside>
 
 <main>
 <header>
   <button class="menu" id="menu"><i class="fa-solid fa-bars"></i></button>
-  <div><label>ORGANIZATION OVERVIEW</label><h1><?= htmlspecialchars($orgName) ?></h1></div>
+  <div><label>ORGANIZATION OVERVIEW</label><h1><?= htmlspecialchars($myOrg['name'] ?? 'Get started') ?></h1></div>
   <div class="head-actions"><button><i class="fa-regular fa-bell"></i></button><div class="avatar">O</div></div>
 </header>
 
 <div class="content">
+
+<?php if (!$myOrg): ?>
+
+<div class="card" style="max-width:480px;margin:30px auto">
+  <div class="card-head"><div><label>SET UP YOUR ORGANIZATION</label><h3>Create your organization</h3></div></div>
+  <div style="padding:0 21px 21px">
+    <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:16px">Manage the people who travel under your organization, keep an eye on their journeys, and see safety reports in one place.</p>
+    <div class="form-field" style="margin-bottom:14px"><label>Organization name</label><input type="text" id="orgName" placeholder="e.g. Meru Transport Sacco"></div>
+    <p class="hint" id="createOrgError" style="color:#c94b4b;margin-bottom:10px;display:none"></p>
+    <button type="button" class="btn-primary" id="createOrgBtn" style="width:100%;justify-content:center">Create organization</button>
+  </div>
+</div>
+
+<?php else: ?>
 
 <div class="page-head">
   <div><h2>How your organization is travelling</h2><p>A snapshot of your travelers, group journeys, and safety activity.</p></div>
 </div>
 
 <div class="stat-grid">
-  <div class="stat-card"><label>TOTAL TRAVELERS</label><strong>212</strong><small>18 added this month</small></div>
-  <div class="stat-card"><label>ACTIVE JOURNEYS</label><strong>14</strong><small>Right now</small></div>
-  <div class="stat-card"><label>UPCOMING GROUP TRIPS</label><strong>3</strong><small>Next 7 days</small></div>
-  <div class="stat-card"><label>SOS ALERTS</label><strong>1</strong><small>This month, resolved</small></div>
+  <div class="stat-card"><label>TOTAL TRAVELERS</label><strong><?= $totalTravelers ?></strong><small><?= $addedThisMonth ?> added this month</small></div>
+  <div class="stat-card"><label>ACTIVE JOURNEYS</label><strong><?= $activeJourneys ?></strong><small>Right now</small></div>
+  <div class="stat-card"><label>UPCOMING GROUP TRIPS</label><strong><?= $upcomingGroups ?></strong><small>Scheduled</small></div>
+  <div class="stat-card"><label>SOS ALERTS</label><strong><?= $sosThisMonth ?></strong><small>This month, <?= $sosActive ?> still active</small></div>
 </div>
 
 <div class="card">
   <div class="card-head"><div><label>RECENT ACTIVITY</label><h3>What's happening</h3></div></div>
   <div class="journey-list">
-    <div class="journey-row">
-      <div class="jicon"><i class="fa-solid fa-route"></i></div>
-      <div class="jinfo"><b>James Kariuki started a journey</b><small>Meru &rarr; Nairobi &middot; 10 minutes ago</small></div>
-      <div class="jmeta"><span class="badge active">Active</span></div>
+    <?php if (empty($activity)): ?>
+    <p class="hint" style="padding:20px 21px;color:var(--muted);font-size:11px">No activity yet. Once your travelers start journeys or trigger alerts, you will see it here.</p>
+    <?php endif; ?>
+    <?php foreach ($activity as $a): ?>
+    <?php
+      $icon = ['journey_started' => 'fa-route', 'journey_completed' => 'fa-check', 'group_created' => 'fa-user-group', 'sos_triggered' => 'fa-triangle-exclamation', 'sos_resolved' => 'fa-check'][$a['etype']];
+      $badgeClass = ['journey_started' => 'active', 'journey_completed' => 'completed', 'group_created' => 'active', 'sos_triggered' => 'cancelled', 'sos_resolved' => 'completed'][$a['etype']];
+      $badgeLabel = ['journey_started' => 'Active', 'journey_completed' => 'Completed', 'group_created' => 'Upcoming', 'sos_triggered' => 'Alert', 'sos_resolved' => 'Resolved'][$a['etype']];
+      $title = [
+        'journey_started' => htmlspecialchars($a['name1']) . ' started a journey',
+        'journey_completed' => htmlspecialchars($a['name1']) . ' completed a journey',
+        'group_created' => htmlspecialchars($a['name1']) . ' created a group journey',
+        'sos_triggered' => htmlspecialchars($a['name1']) . ' sent an SOS alert',
+        'sos_resolved' => htmlspecialchars($a['name1']) . "'s SOS alert was resolved",
+      ][$a['etype']];
+      $sub = in_array($a['etype'], ['journey_started', 'journey_completed'], true)
+        ? htmlspecialchars($a['label1']) . ' &rarr; ' . htmlspecialchars($a['label2']) . ' &middot; ' . admin_relative_time($a['etime'])
+        : ($a['etype'] === 'group_created'
+            ? htmlspecialchars($a['label1']) . ' &middot; ' . (int) $a['num'] . ' members &middot; ' . admin_relative_time($a['etime'])
+            : admin_relative_time($a['etime']));
+    ?>
+    <div class="journey-row" style="cursor:default">
+      <div class="jicon"><i class="fa-solid <?= $icon ?>"></i></div>
+      <div class="jinfo"><b><?= $title ?></b><small><?= $sub ?></small></div>
+      <div class="jmeta"><span class="badge <?= $badgeClass ?>"><?= $badgeLabel ?></span></div>
     </div>
-    <div class="journey-row">
-      <div class="jicon"><i class="fa-solid fa-user-group"></i></div>
-      <div class="jinfo"><b>Staff outing group journey created</b><small>Organized by Grace Njeri &middot; 9 members &middot; 1 hour ago</small></div>
-      <div class="jmeta"><span class="badge active">Upcoming</span></div>
-    </div>
-    <div class="journey-row">
-      <div class="jicon"><i class="fa-solid fa-check"></i></div>
-      <div class="jinfo"><b>Sarah Wambui completed a journey</b><small>Meru &rarr; Chuka &middot; 3 hours ago</small></div>
-      <div class="jmeta"><span class="badge completed">Completed</span></div>
-    </div>
-    <div class="journey-row">
-      <div class="jicon"><i class="fa-solid fa-triangle-exclamation"></i></div>
-      <div class="jinfo"><b>SOS alert resolved</b><small>David Mutuku &middot; flagged and closed by admin &middot; yesterday</small></div>
-      <div class="jmeta"><span class="badge completed">Resolved</span></div>
-    </div>
+    <?php endforeach; ?>
   </div>
 </div>
+
+<?php endif; ?>
 
 </div>
 <footer>&copy; <?= date('Y') ?> SafariTrak <span>Navigate. Track. Share. Connect. Stay Safe.</span></footer>
 </main>
 </div>
 <script src="dashboard.js"></script>
+<?php if (!$myOrg): ?>
+<script src="admin-onboarding.js"></script>
+<?php endif; ?>
 </body>
 </html>

@@ -1,6 +1,25 @@
 <?php
-require __DIR__ . '/backend/includes/auth-guard.php';
-$orgName = 'Meru Transport Sacco';
+require __DIR__ . '/backend/includes/org-guard.php';
+
+if (!$myOrg) {
+    header('Location: admin-dashboard.php');
+    exit;
+}
+
+$db = safaritrak_db();
+$orgId = $myOrg['id'];
+
+$groupsStmt = $db->prepare(
+    'SELECT gj.*, u.full_name AS organizer_name,
+            (SELECT COUNT(*) FROM group_members gm WHERE gm.group_journey_id = gj.id AND gm.status = "confirmed") AS confirmed_count,
+            (SELECT COUNT(*) FROM group_members gm WHERE gm.group_journey_id = gj.id) AS total_invited
+     FROM group_journeys gj
+     JOIN users u ON u.id = gj.organizer_id
+     WHERE gj.organizer_id IN (SELECT user_id FROM organization_travelers WHERE organization_id = ? AND status = "active")
+     ORDER BY FIELD(gj.status, "active", "upcoming", "completed", "cancelled"), gj.created_at DESC'
+);
+$groupsStmt->execute([$orgId]);
+$groups = $groupsStmt->fetchAll();
 ?>
 <!doctype html>
 <html lang="en">
@@ -24,7 +43,7 @@ $orgName = 'Meru Transport Sacco';
   <div class="bottom">
     <a href="index.php"><i class="fa-solid fa-arrow-right-arrow-left"></i>Switch to traveler view</a>
     <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span>O</span><div><b><?= htmlspecialchars($orgName) ?></b><small>Organization admin</small></div></div>
+    <div class="account"><span>O</span><div><b><?= htmlspecialchars($myOrg['name']) ?></b><small>Organization admin</small></div></div>
   </div>
 </aside>
 
@@ -38,7 +57,7 @@ $orgName = 'Meru Transport Sacco';
 <div class="content">
 
 <div class="page-head">
-  <div><h2>Group trips across your organization</h2><p>See every group journey, who organized it, and who is authorized to be tracked.</p></div>
+  <div><h2>Group trips across your organization</h2><p>See every group journey organized by your travelers and who is authorized to be tracked.</p></div>
 </div>
 
 <div class="card">
@@ -48,38 +67,20 @@ $orgName = 'Meru Transport Sacco';
         <tr><th>Trip</th><th>Organizer</th><th>Members</th><th>Date</th><th>Status</th><th>Action</th></tr>
       </thead>
       <tbody>
+        <?php if (empty($groups)): ?>
+        <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px 0">No group journeys organized by your travelers yet.</td></tr>
+        <?php endif; ?>
+        <?php foreach ($groups as $g): ?>
+        <?php $badgeClass = ['active' => 'active', 'upcoming' => 'active', 'completed' => 'completed', 'cancelled' => 'cancelled'][$g['status']]; ?>
         <tr>
-          <td><b>Staff outing: Meru &rarr; Ol Pejeta</b></td>
-          <td><div class="table-person"><span class="person">GN</span>Grace Njeri</div></td>
-          <td>9</td>
-          <td>10 Aug 2026</td>
-          <td><span class="badge active">Upcoming</span></td>
-          <td><a class="table-action" href="#" data-open-modal="orgGroupModal1">View</a></td>
+          <td><b><?= htmlspecialchars($g['title']) ?></b></td>
+          <td><div class="table-person"><span class="person"><?= htmlspecialchars(st_initials($g['organizer_name'])) ?></span><?= htmlspecialchars($g['organizer_name']) ?></div></td>
+          <td><?= (int) $g['confirmed_count'] ?> / <?= (int) $g['total_invited'] ?></td>
+          <td><?= $g['departure_at'] ? (new DateTime($g['departure_at']))->format('j M Y') : (new DateTime($g['created_at']))->format('j M Y') ?></td>
+          <td><span class="badge <?= $badgeClass ?>"><?= ucfirst($g['status']) ?></span></td>
+          <td><a class="table-action" href="#" data-open-modal="orgGroupModal<?= (int) $g['id'] ?>">View</a></td>
         </tr>
-        <tr>
-          <td><b>Sacco AGM: Nairobi &rarr; Meru</b></td>
-          <td><div class="table-person"><span class="person">JK</span>James Kariuki</div></td>
-          <td>23</td>
-          <td>15 Aug 2026</td>
-          <td><span class="badge active">Upcoming</span></td>
-          <td><a class="table-action" href="#" data-open-modal="orgGroupModal2">View</a></td>
-        </tr>
-        <tr>
-          <td><b>Youth conference convoy</b></td>
-          <td><div class="table-person"><span class="person">SW</span>Sarah Wambui</div></td>
-          <td>14</td>
-          <td>2 Aug 2026</td>
-          <td><span class="badge completed">Completed</span></td>
-          <td><a class="table-action" href="#" data-open-modal="orgGroupModal3">View</a></td>
-        </tr>
-        <tr>
-          <td><b>Field visit: Meru &rarr; Isiolo</b></td>
-          <td><div class="table-person"><span class="person">DM</span>David Mutuku</div></td>
-          <td>5</td>
-          <td>28 Jul 2026</td>
-          <td><span class="badge cancelled">Cancelled</span></td>
-          <td><a class="table-action" href="#" data-open-modal="orgGroupModal4">View</a></td>
-        </tr>
+        <?php endforeach; ?>
       </tbody>
     </table>
   </div>
@@ -90,37 +91,27 @@ $orgName = 'Meru Transport Sacco';
 </main>
 </div>
 
-<div class="modal-overlay" id="orgGroupModal1">
+<?php foreach ($groups as $g): ?>
+<?php
+  $membersStmt = $db->prepare('SELECT u.full_name, gm.status FROM group_members gm JOIN users u ON u.id = gm.user_id WHERE gm.group_journey_id = ? ORDER BY FIELD(gm.status,"confirmed","invited","declined")');
+  $membersStmt->execute([$g['id']]);
+  $groupMembers = $membersStmt->fetchAll();
+?>
+<div class="modal-overlay" id="orgGroupModal<?= (int) $g['id'] ?>">
   <div class="modal">
-    <div class="modal-head"><div><h3>Staff outing: Meru &rarr; Ol Pejeta</h3><p>9 members &middot; 10 Aug 2026</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p>Organized by Grace Njeri. All 9 members have confirmed and will be trackable once the trip starts.</p></div>
+    <div class="modal-head"><div><h3><?= htmlspecialchars($g['title']) ?></h3><p>To <?= htmlspecialchars($g['destination_label']) ?> &middot; <?= ucfirst($g['status']) ?></p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <p>Organized by <?= htmlspecialchars($g['organizer_name']) ?>.</p>
+      <div class="share-contacts" style="margin-top:10px">
+        <?php foreach ($groupMembers as $gm): ?>
+        <div class="share-contact-row"><span class="person"><?= htmlspecialchars(st_initials($gm['full_name'])) ?></span><span><?= htmlspecialchars($gm['full_name']) ?> &middot; <?= ucfirst($gm['status']) ?></span></div>
+        <?php endforeach; ?>
+      </div>
+    </div>
     <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button></div>
   </div>
 </div>
-
-<div class="modal-overlay" id="orgGroupModal2">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Sacco AGM: Nairobi &rarr; Meru</h3><p>23 members &middot; 15 Aug 2026</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p>Organized by James Kariuki. 18 of 23 members have confirmed attendance so far.</p></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="orgGroupModal3">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Youth conference convoy</h3><p>14 members &middot; completed 2 Aug 2026</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p>All 14 members arrived safely with no route deviation alerts recorded.</p></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="orgGroupModal4">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Field visit: Meru &rarr; Isiolo</h3><p>5 members &middot; cancelled 28 Jul 2026</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p>Cancelled by the organizer before departure. No distance was recorded.</p></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button></div>
-  </div>
-</div>
+<?php endforeach; ?>
 
 <script src="dashboard.js"></script>
 </body>

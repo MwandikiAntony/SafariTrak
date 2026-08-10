@@ -1,6 +1,36 @@
 <?php
-require __DIR__ . '/backend/includes/auth-guard.php';
-$orgName = 'Meru Transport Sacco';
+require __DIR__ . '/backend/includes/org-guard.php';
+
+if (!$myOrg) {
+    header('Location: admin-dashboard.php');
+    exit;
+}
+
+$db = safaritrak_db();
+$orgId = $myOrg['id'];
+
+$travelersStmt = $db->prepare(
+    'SELECT ot.id AS row_id, ot.status AS membership_status, u.id AS user_id, u.full_name, u.phone,
+            (SELECT COUNT(*) FROM journeys j WHERE j.user_id = u.id) AS journey_count,
+            (SELECT COUNT(*) FROM journeys j WHERE j.user_id = u.id AND j.status = "active") AS has_active_journey,
+            (SELECT MAX(started_at) FROM journeys j WHERE j.user_id = u.id) AS last_journey_at
+     FROM organization_travelers ot
+     JOIN users u ON u.id = ot.user_id
+     WHERE ot.organization_id = ?
+     ORDER BY ot.status ASC, u.full_name ASC'
+);
+$travelersStmt->execute([$orgId]);
+$travelers = $travelersStmt->fetchAll();
+
+function admin_last_active(?string $dt): string {
+    if (!$dt) return 'No activity yet';
+    $diff = time() - strtotime($dt);
+    if ($diff < 60) return 'Just now';
+    if ($diff < 3600) return floor($diff / 60) . ' minutes ago';
+    if ($diff < 86400) return floor($diff / 3600) . ' hours ago';
+    if ($diff < 172800) return 'Yesterday';
+    return (new DateTime($dt))->format('j M Y');
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -24,7 +54,7 @@ $orgName = 'Meru Transport Sacco';
   <div class="bottom">
     <a href="index.php"><i class="fa-solid fa-arrow-right-arrow-left"></i>Switch to traveler view</a>
     <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span>O</span><div><b><?= htmlspecialchars($orgName) ?></b><small>Organization admin</small></div></div>
+    <div class="account"><span>O</span><div><b><?= htmlspecialchars($myOrg['name']) ?></b><small>Organization admin</small></div></div>
   </div>
 </aside>
 
@@ -49,6 +79,7 @@ $orgName = 'Meru Transport Sacco';
       <option value="all">All statuses</option>
       <option value="active">Active now</option>
       <option value="offline">Offline</option>
+      <option value="deactivated">Deactivated</option>
     </select>
   </div>
   <div class="data-table-wrap">
@@ -57,38 +88,30 @@ $orgName = 'Meru Transport Sacco';
         <tr><th>Traveler</th><th>Phone</th><th>Status</th><th>Journeys</th><th>Last active</th><th>Action</th></tr>
       </thead>
       <tbody>
-        <tr data-status="active">
-          <td><div class="table-person"><span class="person">JK</span>James Kariuki</div></td>
-          <td>0712 445 210</td>
-          <td><span class="badge active">Active now</span></td>
-          <td>34</td>
-          <td>10 minutes ago</td>
-          <td><a class="table-action" href="#" data-open-modal="travelerModal1">View</a><a class="table-action danger" href="#" data-open-modal="deactivateModal1">Deactivate</a></td>
+        <?php if (empty($travelers)): ?>
+        <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px 0">No travelers yet. Add someone by their phone number to get started.</td></tr>
+        <?php endif; ?>
+        <?php foreach ($travelers as $t): ?>
+        <?php
+          $rowStatus = $t['membership_status'] === 'deactivated' ? 'deactivated' : ($t['has_active_journey'] > 0 ? 'active' : 'offline');
+          $badge = ['active' => ['active', 'Active now'], 'offline' => ['completed', 'Offline'], 'deactivated' => ['cancelled', 'Deactivated']][$rowStatus];
+        ?>
+        <tr data-status="<?= $rowStatus ?>">
+          <td><div class="table-person"><span class="person"><?= htmlspecialchars(st_initials($t['full_name'])) ?></span><?= htmlspecialchars($t['full_name']) ?></div></td>
+          <td><?= htmlspecialchars($t['phone']) ?></td>
+          <td><span class="badge <?= $badge[0] ?>"><?= $badge[1] ?></span></td>
+          <td><?= (int) $t['journey_count'] ?></td>
+          <td><?= admin_last_active($t['last_journey_at']) ?></td>
+          <td>
+            <a class="table-action" href="#" data-open-modal="travelerModal<?= (int) $t['row_id'] ?>">View</a>
+            <?php if ($t['membership_status'] === 'active'): ?>
+            <button type="button" class="table-action danger status-btn" data-row-id="<?= (int) $t['row_id'] ?>" data-action="deactivate" style="background:none;border:0;cursor:pointer;font-family:inherit">Deactivate</button>
+            <?php else: ?>
+            <button type="button" class="table-action status-btn" data-row-id="<?= (int) $t['row_id'] ?>" data-action="reactivate" style="background:none;border:0;cursor:pointer;font-family:inherit">Reactivate</button>
+            <?php endif; ?>
+          </td>
         </tr>
-        <tr data-status="offline">
-          <td><div class="table-person"><span class="person">SW</span>Sarah Wambui</div></td>
-          <td>0722 810 044</td>
-          <td><span class="badge completed">Offline</span></td>
-          <td>21</td>
-          <td>3 hours ago</td>
-          <td><a class="table-action" href="#" data-open-modal="travelerModal2">View</a><a class="table-action danger" href="#" data-open-modal="deactivateModal2">Deactivate</a></td>
-        </tr>
-        <tr data-status="offline">
-          <td><div class="table-person"><span class="person">DM</span>David Mutuku</div></td>
-          <td>0733 902 187</td>
-          <td><span class="badge completed">Offline</span></td>
-          <td>12</td>
-          <td>Yesterday</td>
-          <td><a class="table-action" href="#" data-open-modal="travelerModal3">View</a><a class="table-action danger" href="#" data-open-modal="deactivateModal3">Deactivate</a></td>
-        </tr>
-        <tr data-status="active">
-          <td><div class="table-person"><span class="person">GN</span>Grace Njeri</div></td>
-          <td>0700 556 321</td>
-          <td><span class="badge active">Active now</span></td>
-          <td>47</td>
-          <td>Just now</td>
-          <td><a class="table-action" href="#" data-open-modal="travelerModal4">View</a><a class="table-action danger" href="#" data-open-modal="deactivateModal4">Deactivate</a></td>
-        </tr>
+        <?php endforeach; ?>
       </tbody>
     </table>
   </div>
@@ -102,77 +125,30 @@ $orgName = 'Meru Transport Sacco';
 
 <div class="modal-overlay" id="addTravelerModal">
   <div class="modal">
-    <div class="modal-head"><div><h3>Add a traveler</h3><p>Invite someone to join your organization on SafariTrak.</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-head"><div><h3>Add a traveler</h3><p>Add someone who already has a SafariTrak account by their phone number.</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
-      <div class="form-field" style="margin-bottom:12px"><label>Full name</label><input type="text" placeholder="e.g. Josephine Achieng"></div>
-      <div class="form-field"><label>Phone number</label><input type="tel" placeholder="e.g. 0711 223 344"></div>
+      <div class="form-field"><label>Phone number</label><input type="tel" id="addTravelerPhone" placeholder="e.g. 0711 223 344"></div>
+      <p class="hint" id="addTravelerError" style="color:#c94b4b;margin-top:10px;display:none"></p>
     </div>
     <div class="modal-actions">
       <button type="button" class="ghost" data-close-modal>Cancel</button>
-      <button type="button" class="primary" onclick="alert('Once the backend is connected, this will send an invite to join your organization.')">Send invite</button>
+      <button type="button" class="primary" id="addTravelerBtn">Add traveler</button>
     </div>
   </div>
 </div>
 
-<div class="modal-overlay" id="travelerModal1">
+<?php foreach ($travelers as $t): ?>
+<div class="modal-overlay" id="travelerModal<?= (int) $t['row_id'] ?>">
   <div class="modal">
-    <div class="modal-head"><div><h3>James Kariuki</h3><p>Active now &middot; 0712 445 210</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p>34 journeys logged. Currently travelling from Meru to Nairobi, started 10 minutes ago.</p></div>
+    <div class="modal-head"><div><h3><?= htmlspecialchars($t['full_name']) ?></h3><p><?= htmlspecialchars($t['phone']) ?></p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <p><?= (int) $t['journey_count'] ?> journey<?= $t['journey_count'] == 1 ? '' : 's' ?> logged.
+      <?= $t['has_active_journey'] > 0 ? 'Currently on an active journey.' : ($t['last_journey_at'] ? 'Last active ' . strtolower(admin_last_active($t['last_journey_at'])) . '.' : 'No journeys yet.') ?></p>
+    </div>
     <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button></div>
   </div>
 </div>
-
-<div class="modal-overlay" id="travelerModal2">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Sarah Wambui</h3><p>Offline &middot; 0722 810 044</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p>21 journeys logged. Last journey completed 3 hours ago, Meru to Chuka.</p></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="travelerModal3">
-  <div class="modal">
-    <div class="modal-head"><div><h3>David Mutuku</h3><p>Offline &middot; 0733 902 187</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p>12 journeys logged. Had an SOS alert yesterday which was resolved by an admin.</p></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="travelerModal4">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Grace Njeri</h3><p>Active now &middot; 0700 556 321</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p>47 journeys logged. Organizer of the upcoming staff outing group journey.</p></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="deactivateModal1">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Deactivate James Kariuki?</h3><p>They will lose access to the organization's SafariTrak account.</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Cancel</button><button type="button" class="danger" onclick="alert('Once the backend is connected, this will deactivate their account.')">Deactivate</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="deactivateModal2">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Deactivate Sarah Wambui?</h3><p>They will lose access to the organization's SafariTrak account.</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Cancel</button><button type="button" class="danger" onclick="alert('Once the backend is connected, this will deactivate their account.')">Deactivate</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="deactivateModal3">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Deactivate David Mutuku?</h3><p>They will lose access to the organization's SafariTrak account.</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Cancel</button><button type="button" class="danger" onclick="alert('Once the backend is connected, this will deactivate their account.')">Deactivate</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="deactivateModal4">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Deactivate Grace Njeri?</h3><p>They will lose access to the organization's SafariTrak account.</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Cancel</button><button type="button" class="danger" onclick="alert('Once the backend is connected, this will deactivate their account.')">Deactivate</button></div>
-  </div>
-</div>
+<?php endforeach; ?>
 
 <script src="dashboard.js"></script>
 <script src="admin-travelers.js"></script>
