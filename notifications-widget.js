@@ -25,6 +25,28 @@ function notifRelativeTime(dateString) {
   return then.toLocaleDateString();
 }
 
+function notifLink(n) {
+  switch (n.type) {
+    case 'location_share':
+    case 'journey_started':
+      return n.related_journey_id ? 'watch-journey.php?id=' + n.related_journey_id : null;
+    case 'journey_completed':
+    case 'arrival':
+    case 'route_deviation':
+      return n.related_journey_id ? 'watch-journey.php?id=' + n.related_journey_id : 'my-journeys.php';
+    case 'new_message':
+      return n.related_user_id ? 'messages.php?to=' + n.related_user_id : 'messages.php';
+    case 'contact_request':
+      return 'trusted-contacts.php';
+    case 'group_invite':
+      return 'group-travel.php';
+    case 'sos_alert':
+      return 'safety.php';
+    default:
+      return null;
+  }
+}
+
 async function loadNotifDropdown() {
   const list = document.getElementById('notifDropdownList');
   const dot = document.getElementById('notifDot');
@@ -53,7 +75,11 @@ async function loadNotifDropdown() {
       const iconTag = iconClass.startsWith('fa-regular') ? iconClass : 'fa-solid ' + iconClass;
       const sosClass = n.type === 'sos_alert' ? ' sos' : '';
       const unreadClass = n.is_read ? '' : ' unread';
-      return '<div class="notif-item' + unreadClass + sosClass + '"><i class="' + iconTag + '"></i><div><b>' + escapeHtml(n.title) + '</b><small>' + notifRelativeTime(n.created_at) + '</small></div></div>';
+      const inner = '<i class="' + iconTag + '"></i><div><b>' + escapeHtml(n.title) + '</b><small>' + notifRelativeTime(n.created_at) + '</small></div>';
+      const link = notifLink(n);
+      const tag = link ? 'a href="' + link + '"' : 'div';
+      const closeTag = link ? 'a' : 'div';
+      return '<' + tag + ' class="notif-item' + unreadClass + sosClass + '" style="text-decoration:none;color:inherit">' + inner + '</' + closeTag + '>';
     }).join('');
   } catch (err) {
     list.innerHTML = '<p class="notif-empty">Could not load notifications.</p>';

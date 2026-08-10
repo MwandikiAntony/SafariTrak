@@ -37,13 +37,34 @@ notifTabs.forEach(tab => {
   });
 });
 
-document.getElementById('markAllRead')?.addEventListener('click', () => {
-  notifRows.forEach(row => {
-    row.classList.remove('unread');
-    row.querySelector('.unread-dot')?.remove();
-  });
-  document.getElementById('notifDot')?.style.setProperty('display', 'none');
+document.getElementById('markAllRead')?.addEventListener('click', async () => {
+  const btn = document.getElementById('markAllRead');
+  btn.disabled = true;
 
-  const activeTab = document.querySelector('#notifTabs .tab.active');
-  if (activeTab) applyFilter(activeTab.getAttribute('data-filter'));
+  try {
+    const response = await fetch('backend/api/notifications/mark-read.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ all: true }),
+    });
+    const data = await response.json();
+
+    if (!data.success) {
+      alert('That could not be completed. Please try again.');
+      return;
+    }
+
+    notifRows.forEach(row => {
+      row.classList.remove('unread');
+      row.querySelector('.unread-dot')?.remove();
+    });
+    document.getElementById('notifDot')?.style.setProperty('display', 'none');
+
+    const activeTab = document.querySelector('#notifTabs .tab.active');
+    if (activeTab) applyFilter(activeTab.getAttribute('data-filter'));
+  } catch (err) {
+    alert('Something went wrong. Please try again.');
+  } finally {
+    btn.disabled = false;
+  }
 });

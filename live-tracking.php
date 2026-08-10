@@ -10,7 +10,7 @@ $activeJourney = $activeStmt->fetch();
 $watchers = [];
 if ($activeJourney) {
     $watchersStmt = $db->prepare(
-        'SELECT COALESCE(u.full_name, tc.invite_name) AS display_name, tc.contact_user_id
+        'SELECT COALESCE(u.full_name, tc.invite_name) AS display_name, tc.contact_user_id, tc.id AS trusted_contact_id
          FROM journey_shares js
          JOIN trusted_contacts tc ON tc.id = js.trusted_contact_id
          LEFT JOIN users u ON u.id = tc.contact_user_id
@@ -19,6 +19,18 @@ if ($activeJourney) {
     $watchersStmt->execute([$activeJourney['id']]);
     $watchers = $watchersStmt->fetchAll();
 }
+
+$watchedStmt = $db->prepare(
+    'SELECT j.id, j.start_label, j.end_label, j.started_at, u.full_name AS traveler_name
+     FROM journeys j
+     JOIN journey_shares js ON js.journey_id = j.id
+     JOIN trusted_contacts tc ON tc.id = js.trusted_contact_id
+     JOIN users u ON u.id = j.user_id
+     WHERE tc.contact_user_id = ? AND tc.status = "confirmed" AND j.status = "active"
+     ORDER BY j.started_at DESC'
+);
+$watchedStmt->execute([$currentUser['id']]);
+$watchedJourneys = $watchedStmt->fetchAll();
 ?>
 <!doctype html>
 <html lang="en">
@@ -72,6 +84,27 @@ if ($activeJourney) {
 
 <?php if (!$activeJourney): ?>
 
+<?php if (!empty($watchedJourneys)): ?>
+
+<div class="page-head">
+  <div><h2>Journeys shared with you</h2><p>You are not travelling right now, but you can watch these live.</p></div>
+  <a class="btn-primary" href="start-journey.php"><i class="fa-solid fa-plus"></i>Start a journey</a>
+</div>
+
+<div class="card">
+  <div class="journey-list">
+    <?php foreach ($watchedJourneys as $wj): ?>
+    <a href="watch-journey.php?id=<?= (int) $wj['id'] ?>" class="journey-row" style="text-decoration:none;color:inherit">
+      <div class="jicon"><i class="fa-solid fa-location-crosshairs"></i></div>
+      <div class="jinfo"><b><?= htmlspecialchars($wj['traveler_name']) ?></b><small><?= htmlspecialchars($wj['start_label']) ?> &rarr; <?= htmlspecialchars($wj['end_label']) ?> &middot; Started <?= (new DateTime($wj['started_at']))->format('g:i A') ?></small></div>
+      <div class="jmeta"><span class="badge active">Live</span></div>
+    </a>
+    <?php endforeach; ?>
+  </div>
+</div>
+
+<?php else: ?>
+
 <div class="card">
   <div class="empty" style="margin:21px">
     <i class="fa-solid fa-location-crosshairs"></i>
@@ -79,6 +112,8 @@ if ($activeJourney) {
     <a class="empty-link" href="start-journey.php">Start a journey</a>
   </div>
 </div>
+
+<?php endif; ?>
 
 <?php else: ?>
 
@@ -107,7 +142,10 @@ if ($activeJourney) {
       <p class="hint" style="padding:16px 21px;color:var(--muted);font-size:11px">You did not share this journey with anyone.</p>
       <?php endif; ?>
       <?php foreach ($watchers as $w): ?>
-      <div><span class="person"><?= htmlspecialchars(st_initials($w['display_name'])) ?></span><div><b><?= htmlspecialchars($w['display_name']) ?></b><small>&#9679; <?= $w['contact_user_id'] ? 'Watching now' : 'Invited, not on SafariTrak yet' ?></small></div><a class="msg-link" href="messages.php"><i class="fa-regular fa-message"></i></a></div>
+      <div><span class="person"><?= htmlspecialchars(st_initials($w['display_name'])) ?></span><div><b><?= htmlspecialchars($w['display_name']) ?></b><small>&#9679; <?= $w['contact_user_id'] ? 'Watching now' : 'Invited, not on SafariTrak yet' ?></small></div>
+        <?php if ($w['contact_user_id']): ?><a class="msg-link" href="messages.php?to=<?= (int) $w['contact_user_id'] ?>"><i class="fa-regular fa-message"></i></a><?php endif; ?>
+        <button type="button" class="btn-ghost stop-sharing-btn" data-contact-id="<?= (int) $w['trusted_contact_id'] ?>" style="color:#c94b4b;padding:6px 9px;font-size:9px">Stop</button>
+      </div>
       <?php endforeach; ?>
     </div>
   </div>
@@ -120,6 +158,21 @@ if ($activeJourney) {
     </div>
   </div>
 </section>
+
+<?php if (!empty($watchedJourneys)): ?>
+<div class="card" style="margin-top:18px">
+  <div class="card-head"><div><label>ALSO WATCHING</label><h3>Journeys shared with you</h3></div></div>
+  <div class="journey-list">
+    <?php foreach ($watchedJourneys as $wj): ?>
+    <a href="watch-journey.php?id=<?= (int) $wj['id'] ?>" class="journey-row" style="text-decoration:none;color:inherit">
+      <div class="jicon"><i class="fa-solid fa-location-crosshairs"></i></div>
+      <div class="jinfo"><b><?= htmlspecialchars($wj['traveler_name']) ?></b><small><?= htmlspecialchars($wj['start_label']) ?> &rarr; <?= htmlspecialchars($wj['end_label']) ?></small></div>
+      <div class="jmeta"><span class="badge active">Live</span></div>
+    </a>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
 
 <?php endif; ?>
 

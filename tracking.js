@@ -110,3 +110,30 @@ document.getElementById('confirmEndJourneyBtn')?.addEventListener('click', async
     btn.textContent = 'End journey';
   }
 });
+
+document.querySelectorAll('.stop-sharing-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    if (!confirm('Stop sharing this journey with them?')) return;
+    btn.disabled = true;
+
+    try {
+      const response = await fetch('backend/api/journeys/stop-sharing.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ journey_id: ACTIVE_JOURNEY_ID, trusted_contact_id: btn.getAttribute('data-contact-id') }),
+      });
+      const data = await response.json();
+
+      if (!data.success) {
+        alert(data.message || 'That could not be completed.');
+        btn.disabled = false;
+        return;
+      }
+
+      btn.parentElement.remove();
+    } catch (err) {
+      alert('Something went wrong. Please try again.');
+      btn.disabled = false;
+    }
+  });
+});
