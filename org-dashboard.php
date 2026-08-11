@@ -93,11 +93,11 @@ function admin_relative_time(string $dt): string {
 <aside class="sidebar" id="sidebar">
   <div class="brand"><div class="logo"><i class="fa-solid fa-route"></i></div><div><b>SafariTrak</b><small>Travel smarter</small><span class="org-badge">ORGANIZATION</span></div></div>
   <nav>
-    <a class="active" href="admin-dashboard.php"><i class="fa-solid fa-grid-2"></i>Overview</a>
+    <a class="active" href="org-dashboard.php"><i class="fa-solid fa-grid-2"></i>Overview</a>
     <?php if ($myOrg): ?>
-    <a href="admin-travelers.php"><i class="fa-solid fa-users"></i>Travelers</a>
-    <a href="admin-groups.php"><i class="fa-solid fa-user-group"></i>Group Journeys</a>
-    <a href="admin-reports.php"><i class="fa-solid fa-chart-simple"></i>Reports</a>
+    <a href="org-travelers.php"><i class="fa-solid fa-users"></i>Travelers</a>
+    <a href="org-groups.php"><i class="fa-solid fa-user-group"></i>Group Journeys</a>
+    <a href="org-reports.php"><i class="fa-solid fa-chart-simple"></i>Reports</a>
     <?php endif; ?>
   </nav>
   <div class="bottom">
@@ -182,7 +182,7 @@ function admin_relative_time(string $dt): string {
 </div>
 <script src="dashboard.js"></script>
 <?php if (!$myOrg): ?>
-<script src="admin-onboarding.js"></script>
+<script src="org-onboarding.js"></script>
 <?php endif; ?>
 </body>
 </html>

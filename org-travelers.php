@@ -2,7 +2,7 @@
 require __DIR__ . '/backend/includes/org-guard.php';
 
 if (!$myOrg) {
-    header('Location: admin-dashboard.php');
+    header('Location: org-dashboard.php');
     exit;
 }
 
@@ -46,10 +46,10 @@ function admin_last_active(?string $dt): string {
 <aside class="sidebar" id="sidebar">
   <div class="brand"><div class="logo"><i class="fa-solid fa-route"></i></div><div><b>SafariTrak</b><small>Travel smarter</small><span class="org-badge">ORGANIZATION</span></div></div>
   <nav>
-    <a href="admin-dashboard.php"><i class="fa-solid fa-grid-2"></i>Overview</a>
-    <a class="active" href="admin-travelers.php"><i class="fa-solid fa-users"></i>Travelers</a>
-    <a href="admin-groups.php"><i class="fa-solid fa-user-group"></i>Group Journeys</a>
-    <a href="admin-reports.php"><i class="fa-solid fa-chart-simple"></i>Reports</a>
+    <a href="org-dashboard.php"><i class="fa-solid fa-grid-2"></i>Overview</a>
+    <a class="active" href="org-travelers.php"><i class="fa-solid fa-users"></i>Travelers</a>
+    <a href="org-groups.php"><i class="fa-solid fa-user-group"></i>Group Journeys</a>
+    <a href="org-reports.php"><i class="fa-solid fa-chart-simple"></i>Reports</a>
   </nav>
   <div class="bottom">
     <a href="index.php"><i class="fa-solid fa-arrow-right-arrow-left"></i>Switch to traveler view</a>
@@ -151,6 +151,6 @@ function admin_last_active(?string $dt): string {
 <?php endforeach; ?>
 
 <script src="dashboard.js"></script>
-<script src="admin-travelers.js"></script>
+<script src="org-travelers.js"></script>
 </body>
 </html>
