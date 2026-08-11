@@ -1,20 +1,42 @@
 document.getElementById('useMyLocationBtn')?.addEventListener('click', () => {
   const btn = document.getElementById('useMyLocationBtn');
+  const startPoint = document.getElementById('startPoint');
+
   if (!navigator.geolocation) {
     alert('Location is not supported by this browser.');
     return;
   }
 
+  btn.disabled = true;
   btn.textContent = 'Getting your location...';
 
   navigator.geolocation.getCurrentPosition(
-    (position) => {
-      document.getElementById('startLat').value = position.coords.latitude;
-      document.getElementById('startLng').value = position.coords.longitude;
+    async (position) => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+
+      document.getElementById('startLat').value = lat;
+      document.getElementById('startLng').value = lng;
+
+      // Optional: Auto-fill location label if empty using OpenStreetMap Nominatim
+      if (startPoint && !startPoint.value.trim()) {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+          const data = await res.json();
+          if (data && data.display_name) {
+            startPoint.value = data.display_name.split(',')[0];
+          }
+        } catch (e) {
+          /* Fallback gracefully if lookup fails */
+        }
+      }
+
+      btn.disabled = false;
       btn.innerHTML = '<i class="fa-solid fa-check"></i> Location added';
     },
     () => {
       alert('Please allow SafariTrak to access your location.');
+      btn.disabled = false;
       btn.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i> Use my current location';
     },
     { enableHighAccuracy: true, timeout: 10000 }
@@ -31,12 +53,16 @@ document.getElementById('submitJourney')?.addEventListener('click', async () => 
     return;
   }
 
-  const shareWith = Array.from(document.querySelectorAll('.share-checkbox:checked')).map(el => parseInt(el.value, 10));
+  const startLatVal = document.getElementById('startLat').value;
+  const startLngVal = document.getElementById('startLng').value;
+
+  const shareWith = Array.from(document.querySelectorAll('.share-checkbox:checked'))
+    .map(el => parseInt(el.value, 10));
 
   const payload = {
     start_label: startPoint.value.trim(),
-    start_lat: document.getElementById('startLat').value || null,
-    start_lng: document.getElementById('startLng').value || null,
+    start_lat: startLatVal ? parseFloat(startLatVal) : null,
+    start_lng: startLngVal ? parseFloat(startLngVal) : null,
     end_label: endPoint.value.trim(),
     transport_mode: document.getElementById('transportMode').value,
     planned_departure_at: document.getElementById('departureTime').value || null,

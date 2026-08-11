@@ -3,6 +3,7 @@ const initialCenter = (window.WATCH_START_LAT !== null && window.WATCH_START_LNG
   : [-1.286389, 36.817223];
 
 const map = L.map('map').setView(initialCenter, 11);
+
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '© OpenStreetMap contributors'
@@ -26,7 +27,9 @@ let currentMarker = null;
 let routeLine = null;
 
 if (window.WATCH_END_LAT !== null && window.WATCH_END_LNG !== null) {
-  L.marker([window.WATCH_END_LAT, window.WATCH_END_LNG], { icon: destinationIcon }).addTo(map).bindPopup('<b>Destination</b>');
+  L.marker([window.WATCH_END_LAT, window.WATCH_END_LNG], { icon: destinationIcon })
+    .addTo(map)
+    .bindPopup('<b>Destination</b>');
 }
 
 function relativeTime(dateString) {
@@ -45,14 +48,15 @@ async function refresh() {
     const data = await response.json();
 
     if (!data.success) {
-      document.getElementById('coveredKm').textContent = 'Not available';
+      const coveredEl = document.getElementById('coveredKm');
+      if (coveredEl) coveredEl.textContent = 'Not available';
       return;
     }
 
     const coveredEl = document.getElementById('coveredKm');
     if (coveredEl) coveredEl.textContent = data.covered_km + ' km';
 
-    const positions = data.positions;
+    const positions = data.positions || [];
 
     if (positions.length > 0) {
       const latlngs = positions.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
@@ -80,8 +84,8 @@ async function refresh() {
       if (lastUpdateEl) lastUpdateEl.textContent = 'No updates yet';
     }
 
-    if (data.journey.status !== 'active') {
-      clearInterval(pollHandle);
+    if (data.journey && data.journey.status !== 'active') {
+      if (pollHandle) clearInterval(pollHandle);
     }
   } catch (err) {
     /* keep the last known state on a failed refresh */

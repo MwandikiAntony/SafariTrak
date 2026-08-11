@@ -18,7 +18,8 @@ if ($identifier === '' || $password === '') {
 
 $db = safaritrak_db();
 
-$stmt = $db->prepare('SELECT id, full_name, username, password_hash FROM users WHERE username = ? OR email = ? OR phone = ?');
+// 1. Added `role` to the SELECT query
+$stmt = $db->prepare('SELECT id, full_name, username, password_hash, role FROM users WHERE username = ? OR email = ? OR phone = ?');
 $stmt->execute([$identifier, $identifier, preg_replace('/\D/', '', $identifier)]);
 $user = $stmt->fetch();
 
@@ -28,4 +29,15 @@ if (!$user || !password_verify($password, $user['password_hash'])) {
 
 st_login_user($user, $remember);
 
-st_json_ok(['redirect' => 'index.php', 'user' => ['full_name' => $user['full_name'], 'username' => $user['username']]]);
+// 2. Normalize user role and dynamically choose redirect target
+$userRole = strtolower(trim($user['role'] ?? 'user'));
+$redirect = ($userRole === 'admin') ? 'admin-dashboard.php' : 'index.php';
+
+st_json_ok([
+    'redirect' => $redirect, 
+    'user' => [
+        'full_name' => $user['full_name'], 
+        'username'  => $user['username'],
+        'role'      => $userRole
+    ]
+]);
