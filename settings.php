@@ -102,7 +102,7 @@ require __DIR__ . '/backend/includes/auth-guard.php';
     <hr style="border:0;border-top:1px solid var(--line);margin:22px 0">
     <button type="button" class="btn-ghost" style="color:#c94b4b;border-color:#f3d4d4" data-open-modal="deleteAccountModal">Delete my account</button>
     <hr style="border:0;border-top:1px solid var(--line);margin:22px 0">
-    <a class="btn-ghost" href="admin-dashboard.php"><i class="fa-solid fa-building"></i>Manage an organization</a>
+    <a class="btn-ghost" href="org-dashboard.php"><i class="fa-solid fa-building"></i>Manage an organization</a>
   </div>
 
 </div>
