@@ -12,16 +12,30 @@ $journeyId = (int) ($_GET['id'] ?? 0);
 
 $db = safaritrak_db();
 
-$stmt = $db->prepare(
-    'SELECT j.*, u.full_name AS traveler_name, u.avatar_path AS traveler_avatar
-     FROM journeys j
-     JOIN users u ON u.id = j.user_id
-     JOIN journey_shares js ON js.journey_id = j.id
-     JOIN trusted_contacts tc ON tc.id = js.trusted_contact_id
-     WHERE j.id = ? AND tc.contact_user_id = ? AND tc.status = "confirmed"
-     LIMIT 1'
-);
-$stmt->execute([$journeyId, $userId]);
+$isPlatformAdminStmt = $db->prepare('SELECT id FROM platform_admins WHERE user_id = ?');
+$isPlatformAdminStmt->execute([$userId]);
+$isPlatformAdmin = (bool) $isPlatformAdminStmt->fetch();
+
+if ($isPlatformAdmin) {
+    $stmt = $db->prepare(
+        'SELECT j.*, u.full_name AS traveler_name, u.avatar_path AS traveler_avatar
+         FROM journeys j JOIN users u ON u.id = j.user_id
+         WHERE j.id = ?
+         LIMIT 1'
+    );
+    $stmt->execute([$journeyId]);
+} else {
+    $stmt = $db->prepare(
+        'SELECT j.*, u.full_name AS traveler_name, u.avatar_path AS traveler_avatar
+         FROM journeys j
+         JOIN users u ON u.id = j.user_id
+         JOIN journey_shares js ON js.journey_id = j.id
+         JOIN trusted_contacts tc ON tc.id = js.trusted_contact_id
+         WHERE j.id = ? AND tc.contact_user_id = ? AND tc.status = "confirmed"
+         LIMIT 1'
+    );
+    $stmt->execute([$journeyId, $userId]);
+}
 $journey = $stmt->fetch();
 
 if (!$journey) {
