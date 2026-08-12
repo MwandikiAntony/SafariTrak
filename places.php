@@ -20,14 +20,14 @@ require __DIR__ . '/backend/includes/auth-guard.php';
     <a href="my-journeys.php"><i class="fa-solid fa-map-location-dot"></i>My Journeys</a>
     <a href="live-tracking.php"><i class="fa-solid fa-location-crosshairs"></i>Live Tracking</a>
     <a class="active" href="places.php"><i class="fa-solid fa-map-pin"></i>Places</a>
-    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages <em>3</em></a>
+    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages<?= $unreadConversationCount > 0 ? " <em>" . $unreadConversationCount . "</em>" : "" ?></a>
     <a href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Trusted Contacts</a>
     <a href="safety.php"><i class="fa-solid fa-shield-halved"></i>Safety</a>
   </nav>
   <div class="bottom">
     <a href="settings.php"><i class="fa-solid fa-gear"></i>Settings</a>
     <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span><?= htmlspecialchars(strtoupper(substr($userName, 0, 1))) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
+    <div class="account"><span><?= st_avatar_inner($currentUser) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
   </div>
 </aside>
 
@@ -40,13 +40,12 @@ require __DIR__ . '/backend/includes/auth-guard.php';
       <button type="button" class="notif-bell" id="notifBell"><i class="fa-regular fa-bell"></i><span class="notif-dot" id="notifDot"></span></button>
       <div class="notif-dropdown" id="notifDropdown">
         <div class="notif-dropdown-head"><b>Notifications</b><a href="notifications.php">View all</a></div>
-        <div class="notif-list">
-          <div class="notif-item unread"><i class="fa-solid fa-route"></i><div><b>Journey started</b><small>Nairobi to Nyeri &middot; 8:40 AM</small></div></div>
-          <div class="notif-item unread"><i class="fa-regular fa-message"></i><div><b>New message from Mary Wanjiku</b><small>Let me know when you arrive &middot; 10 min ago</small></div></div>
+        <div class="notif-list" id="notifDropdownList">
+          <p class="notif-empty">Loading...</p>
         </div>
       </div>
     </div>
-    <div class="avatar"><?= htmlspecialchars(strtoupper(substr($userName, 0, 1))) ?></div>
+    <div class="avatar"><?= st_avatar_inner($currentUser) ?></div>
   </div>
 </header>
 
@@ -205,6 +204,7 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="dashboard.js"></script>
+<script src="notifications-widget.js"></script>
 <script src="places.js"></script>
 </body>
 </html>

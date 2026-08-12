@@ -1,5 +1,16 @@
 <?php
 require __DIR__ . '/backend/includes/auth-guard.php';
+
+$db = safaritrak_db();
+$contactsStmt = $db->prepare(
+    'SELECT tc.id, COALESCE(u.full_name, tc.invite_name) AS display_name
+     FROM trusted_contacts tc
+     LEFT JOIN users u ON u.id = tc.contact_user_id
+     WHERE tc.owner_id = ? AND tc.status = "confirmed"
+     ORDER BY display_name ASC'
+);
+$contactsStmt->execute([$currentUser['id']]);
+$confirmedContacts = $contactsStmt->fetchAll();
 ?>
 <!doctype html>
 <html lang="en">
@@ -19,14 +30,14 @@ require __DIR__ . '/backend/includes/auth-guard.php';
     <a class="active" href="my-journeys.php"><i class="fa-solid fa-map-location-dot"></i>My Journeys</a>
     <a href="live-tracking.php"><i class="fa-solid fa-location-crosshairs"></i>Live Tracking</a>
     <a href="places.php"><i class="fa-solid fa-map-pin"></i>Places</a>
-    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages <em>3</em></a>
+    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages<?= $unreadConversationCount > 0 ? " <em>" . $unreadConversationCount . "</em>" : "" ?></a>
     <a href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Trusted Contacts</a>
     <a href="safety.php"><i class="fa-solid fa-shield-halved"></i>Safety</a>
   </nav>
   <div class="bottom">
     <a href="settings.php"><i class="fa-solid fa-gear"></i>Settings</a>
     <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span><?= htmlspecialchars(strtoupper(substr($userName, 0, 1))) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
+    <div class="account"><span><?= st_avatar_inner($currentUser) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
   </div>
 </aside>
 
@@ -39,15 +50,12 @@ require __DIR__ . '/backend/includes/auth-guard.php';
       <button type="button" class="notif-bell" id="notifBell"><i class="fa-regular fa-bell"></i><span class="notif-dot" id="notifDot"></span></button>
       <div class="notif-dropdown" id="notifDropdown">
         <div class="notif-dropdown-head"><b>Notifications</b><a href="notifications.php">View all</a></div>
-        <div class="notif-list">
-          <div class="notif-item unread"><i class="fa-solid fa-route"></i><div><b>Journey started</b><small>Nairobi to Nyeri &middot; 8:40 AM</small></div></div>
-          <div class="notif-item unread"><i class="fa-regular fa-message"></i><div><b>New message from Mary Wanjiku</b><small>Let me know when you arrive &middot; 10 min ago</small></div></div>
-          <div class="notif-item"><i class="fa-solid fa-location-arrow"></i><div><b>John Mwangi is now watching your journey</b><small>Yesterday</small></div></div>
-          <div class="notif-item"><i class="fa-solid fa-flag-checkered"></i><div><b>Journey completed</b><small>Nairobi to Meru &middot; 2 days ago</small></div></div>
+        <div class="notif-list" id="notifDropdownList">
+          <p class="notif-empty">Loading...</p>
         </div>
       </div>
     </div>
-    <div class="avatar"><?= htmlspecialchars(strtoupper(substr($userName, 0, 1))) ?></div>
+    <div class="avatar"><?= st_avatar_inner($currentUser) ?></div>
   </div>
 </header>
 
@@ -67,6 +75,9 @@ require __DIR__ . '/backend/includes/auth-guard.php';
     <div class="form-field">
       <label for="startPoint">Starting point</label>
       <input type="text" id="startPoint" placeholder="e.g. Nairobi CBD" required>
+      <button type="button" class="btn-ghost" id="useMyLocationBtn" style="margin-top:6px;align-self:flex-start;font-size:9px;padding:7px 10px"><i class="fa-solid fa-location-crosshairs"></i> Use my current location</button>
+      <input type="hidden" id="startLat">
+      <input type="hidden" id="startLng">
     </div>
 
     <div class="form-field">
@@ -96,11 +107,19 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 
     <div class="form-field full">
       <label>Share this journey with</label>
+      <?php if (empty($confirmedContacts)): ?>
+      <p class="hint">You have no confirmed trusted contacts yet. <a href="trusted-contacts.php" style="color:var(--p);font-weight:700;text-decoration:none">Add one first</a> so someone can follow this journey.</p>
+      <?php else: ?>
       <div class="share-contacts">
-        <div class="share-contact-row"><span class="person">JM</span><span>John Mwangi</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
-        <div class="share-contact-row"><span class="person">MW</span><span>Mary Wanjiku</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
-        <div class="share-contact-row"><span class="person">PK</span><span>Peter Kariuki</span><label class="toggle"><input type="checkbox"><span></span></label></div>
+        <?php foreach ($confirmedContacts as $c): ?>
+        <div class="share-contact-row">
+          <span class="person"><?= htmlspecialchars(st_initials($c['display_name'])) ?></span>
+          <span><?= htmlspecialchars($c['display_name']) ?></span>
+          <label class="toggle"><input type="checkbox" class="share-checkbox" value="<?= (int) $c['id'] ?>" checked><span></span></label>
+        </div>
+        <?php endforeach; ?>
       </div>
+      <?php endif; ?>
     </div>
 
     <div class="form-field full" style="padding-top:4px">
@@ -122,6 +141,7 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 </main>
 </div>
 <script src="dashboard.js"></script>
+<script src="notifications-widget.js"></script>
 <script src="start-journey.js"></script>
 </body>
 </html>

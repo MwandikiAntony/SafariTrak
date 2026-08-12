@@ -1,5 +1,36 @@
 <?php
 require __DIR__ . '/backend/includes/auth-guard.php';
+
+$db = safaritrak_db();
+
+$activeStmt = $db->prepare('SELECT * FROM journeys WHERE user_id = ? AND status = "active" LIMIT 1');
+$activeStmt->execute([$currentUser['id']]);
+$activeJourney = $activeStmt->fetch();
+
+$watchers = [];
+if ($activeJourney) {
+    $watchersStmt = $db->prepare(
+        'SELECT COALESCE(u.full_name, tc.invite_name) AS display_name, tc.contact_user_id, tc.id AS trusted_contact_id
+         FROM journey_shares js
+         JOIN trusted_contacts tc ON tc.id = js.trusted_contact_id
+         LEFT JOIN users u ON u.id = tc.contact_user_id
+         WHERE js.journey_id = ?'
+    );
+    $watchersStmt->execute([$activeJourney['id']]);
+    $watchers = $watchersStmt->fetchAll();
+}
+
+$watchedStmt = $db->prepare(
+    'SELECT j.id, j.start_label, j.end_label, j.started_at, u.full_name AS traveler_name
+     FROM journeys j
+     JOIN journey_shares js ON js.journey_id = j.id
+     JOIN trusted_contacts tc ON tc.id = js.trusted_contact_id
+     JOIN users u ON u.id = j.user_id
+     WHERE tc.contact_user_id = ? AND tc.status = "confirmed" AND j.status = "active"
+     ORDER BY j.started_at DESC'
+);
+$watchedStmt->execute([$currentUser['id']]);
+$watchedJourneys = $watchedStmt->fetchAll();
 ?>
 <!doctype html>
 <html lang="en">
@@ -20,14 +51,14 @@ require __DIR__ . '/backend/includes/auth-guard.php';
     <a href="my-journeys.php"><i class="fa-solid fa-map-location-dot"></i>My Journeys</a>
     <a class="active" href="live-tracking.php"><i class="fa-solid fa-location-crosshairs"></i>Live Tracking</a>
     <a href="places.php"><i class="fa-solid fa-map-pin"></i>Places</a>
-    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages <em>3</em></a>
+    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages<?= $unreadConversationCount > 0 ? " <em>" . $unreadConversationCount . "</em>" : "" ?></a>
     <a href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Trusted Contacts</a>
     <a href="safety.php"><i class="fa-solid fa-shield-halved"></i>Safety</a>
   </nav>
   <div class="bottom">
     <a href="settings.php"><i class="fa-solid fa-gear"></i>Settings</a>
     <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span><?= htmlspecialchars(strtoupper(substr($userName, 0, 1))) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
+    <div class="account"><span><?= st_avatar_inner($currentUser) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
   </div>
 </aside>
 
@@ -40,34 +71,66 @@ require __DIR__ . '/backend/includes/auth-guard.php';
       <button type="button" class="notif-bell" id="notifBell"><i class="fa-regular fa-bell"></i><span class="notif-dot" id="notifDot"></span></button>
       <div class="notif-dropdown" id="notifDropdown">
         <div class="notif-dropdown-head"><b>Notifications</b><a href="notifications.php">View all</a></div>
-        <div class="notif-list">
-          <div class="notif-item unread"><i class="fa-solid fa-route"></i><div><b>Journey started</b><small>Nairobi to Nyeri &middot; 8:40 AM</small></div></div>
-          <div class="notif-item unread"><i class="fa-regular fa-message"></i><div><b>New message from Mary Wanjiku</b><small>Let me know when you arrive &middot; 10 min ago</small></div></div>
-          <div class="notif-item"><i class="fa-solid fa-location-arrow"></i><div><b>John Mwangi is now watching your journey</b><small>Yesterday</small></div></div>
-          <div class="notif-item"><i class="fa-solid fa-flag-checkered"></i><div><b>Journey completed</b><small>Nairobi to Meru &middot; 2 days ago</small></div></div>
+        <div class="notif-list" id="notifDropdownList">
+          <p class="notif-empty">Loading...</p>
         </div>
       </div>
     </div>
-    <div class="avatar"><?= htmlspecialchars(strtoupper(substr($userName, 0, 1))) ?></div>
+    <div class="avatar"><?= st_avatar_inner($currentUser) ?></div>
   </div>
 </header>
 
 <div class="content">
 
+<?php if (!$activeJourney): ?>
+
+<?php if (!empty($watchedJourneys)): ?>
+
 <div class="page-head">
-  <div><h2>Nairobi &rarr; Nyeri</h2><p>Journey in progress, started at 8:40 AM.</p></div>
+  <div><h2>Journeys shared with you</h2><p>You are not travelling right now, but you can watch these live.</p></div>
+  <a class="btn-primary" href="start-journey.php"><i class="fa-solid fa-plus"></i>Start a journey</a>
+</div>
+
+<div class="card">
+  <div class="journey-list">
+    <?php foreach ($watchedJourneys as $wj): ?>
+    <a href="watch-journey.php?id=<?= (int) $wj['id'] ?>" class="journey-row" style="text-decoration:none;color:inherit">
+      <div class="jicon"><i class="fa-solid fa-location-crosshairs"></i></div>
+      <div class="jinfo"><b><?= htmlspecialchars($wj['traveler_name']) ?></b><small><?= htmlspecialchars($wj['start_label']) ?> &rarr; <?= htmlspecialchars($wj['end_label']) ?> &middot; Started <?= (new DateTime($wj['started_at']))->format('g:i A') ?></small></div>
+      <div class="jmeta"><span class="badge active">Live</span></div>
+    </a>
+    <?php endforeach; ?>
+  </div>
+</div>
+
+<?php else: ?>
+
+<div class="card">
+  <div class="empty" style="margin:21px">
+    <i class="fa-solid fa-location-crosshairs"></i>
+    <div><b>No journey in progress</b><p>Start a journey and your live position, distance covered and safety tools will show up here.</p></div>
+    <a class="empty-link" href="start-journey.php">Start a journey</a>
+  </div>
+</div>
+
+<?php endif; ?>
+
+<?php else: ?>
+
+<div class="page-head">
+  <div><h2><?= htmlspecialchars($activeJourney['start_label']) ?> &rarr; <?= htmlspecialchars($activeJourney['end_label']) ?></h2><p>Journey in progress, started at <?= (new DateTime($activeJourney['started_at']))->format('g:i A') ?>.</p></div>
   <button type="button" class="btn-ghost" data-open-modal="endJourneyModal"><i class="fa-solid fa-circle-stop"></i>End journey</button>
 </div>
 
 <div class="card map-full">
   <div class="card-head"><div><label>LIVE MAP</label><h3>Your current position</h3></div><button id="myLocation">My location</button></div>
   <div id="map"></div>
-  <div class="legend"><span><i class="current"></i>Your location</span><span><i class="destination"></i>Destination</span></div>
+  <div class="legend"><span><i class="current"></i>Your location</span><?php if ($activeJourney['end_lat']): ?><span><i class="destination"></i>Destination</span><?php endif; ?></div>
   <div class="eta-strip">
-    <div class="eta-chip"><label>DISTANCE COVERED</label><strong>62 km</strong></div>
-    <div class="eta-chip"><label>REMAINING</label><strong>86 km</strong></div>
-    <div class="eta-chip"><label>ESTIMATED ARRIVAL</label><strong>11:15 AM</strong></div>
-    <div class="eta-chip"><label>CURRENT SPEED</label><strong>64 km/h</strong></div>
+    <div class="eta-chip"><label>DISTANCE COVERED</label><strong id="coveredKm">0 km</strong></div>
+    <div class="eta-chip"><label>TOTAL DISTANCE</label><strong id="totalKm"><?= $activeJourney['distance_km'] !== null ? number_format((float) $activeJourney['distance_km'], 1) . ' km' : 'Unknown' ?></strong></div>
+    <div class="eta-chip"><label>STARTED</label><strong><?= (new DateTime($activeJourney['started_at']))->format('g:i A') ?></strong></div>
+    <div class="eta-chip"><label>CURRENT SPEED</label><strong id="currentSpeed">-</strong></div>
   </div>
 </div>
 
@@ -75,25 +138,50 @@ require __DIR__ . '/backend/includes/auth-guard.php';
   <div class="card">
     <div class="card-head"><div><label>WATCHING THIS JOURNEY</label><h3>People tracking you</h3></div><a href="trusted-contacts.php">Manage</a></div>
     <div class="rows contacts">
-      <div><span class="person">JM</span><div><b>John Mwangi</b><small>&#9679; Watching now</small></div><a class="msg-link" href="messages.php"><i class="fa-regular fa-message"></i></a></div>
-      <div><span class="person">MW</span><div><b>Mary Wanjiku</b><small>&#9679; Watching now</small></div><a class="msg-link" href="messages.php"><i class="fa-regular fa-message"></i></a></div>
+      <?php if (empty($watchers)): ?>
+      <p class="hint" style="padding:16px 21px;color:var(--muted);font-size:11px">You did not share this journey with anyone.</p>
+      <?php endif; ?>
+      <?php foreach ($watchers as $w): ?>
+      <div><span class="person"><?= htmlspecialchars(st_initials($w['display_name'])) ?></span><div><b><?= htmlspecialchars($w['display_name']) ?></b><small>&#9679; <?= $w['contact_user_id'] ? 'Watching now' : 'Invited, not on SafariTrak yet' ?></small></div>
+        <?php if ($w['contact_user_id']): ?><a class="msg-link" href="messages.php?to=<?= (int) $w['contact_user_id'] ?>"><i class="fa-regular fa-message"></i></a><?php endif; ?>
+        <button type="button" class="btn-ghost stop-sharing-btn" data-contact-id="<?= (int) $w['trusted_contact_id'] ?>" style="color:#c94b4b;padding:6px 9px;font-size:9px">Stop</button>
+      </div>
+      <?php endforeach; ?>
     </div>
   </div>
   <div class="card">
     <div class="card-head"><div><label>SAFETY</label><h3>While you travel</h3></div></div>
     <div class="tip-list">
-      <div class="tip-row"><i class="fa-solid fa-route"></i><div><b>Route deviation alerts are on</b><p>You will be notified if you move significantly off the planned route.</p></div></div>
+      <div class="tip-row"><i class="fa-solid fa-route"></i><div><b>Route deviation alerts are <?= $activeJourney['route_deviation_alert'] ? 'on' : 'off' ?></b><p>You will be notified if you move significantly off the planned route.</p></div></div>
       <div class="tip-row"><i class="fa-solid fa-triangle-exclamation"></i><div><b>SOS is one tap away</b><p>Use the emergency button on the Safety page if you need urgent help.</p></div></div>
       <div class="tip-row"><i class="fa-solid fa-gas-pump"></i><div><b>Need a stop along the way?</b><p><a href="places.php" style="color:var(--p);font-weight:700;text-decoration:none">Find nearby hospitals, fuel stations, hotels and more</a></p></div></div>
     </div>
   </div>
 </section>
 
+<?php if (!empty($watchedJourneys)): ?>
+<div class="card" style="margin-top:18px">
+  <div class="card-head"><div><label>ALSO WATCHING</label><h3>Journeys shared with you</h3></div></div>
+  <div class="journey-list">
+    <?php foreach ($watchedJourneys as $wj): ?>
+    <a href="watch-journey.php?id=<?= (int) $wj['id'] ?>" class="journey-row" style="text-decoration:none;color:inherit">
+      <div class="jicon"><i class="fa-solid fa-location-crosshairs"></i></div>
+      <div class="jinfo"><b><?= htmlspecialchars($wj['traveler_name']) ?></b><small><?= htmlspecialchars($wj['start_label']) ?> &rarr; <?= htmlspecialchars($wj['end_label']) ?></small></div>
+      <div class="jmeta"><span class="badge active">Live</span></div>
+    </a>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
+
+<?php endif; ?>
+
 </div>
 <footer>&copy; <?= date('Y') ?> SafariTrak <span>Navigate. Track. Share. Connect. Stay Safe.</span></footer>
 </main>
 </div>
 
+<?php if ($activeJourney): ?>
 <div class="modal-overlay" id="endJourneyModal">
   <div class="modal">
     <div class="modal-head"><div><h3>End this journey?</h3><p>Your trusted contacts will be notified that you have arrived.</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
@@ -102,13 +190,24 @@ require __DIR__ . '/backend/includes/auth-guard.php';
     </div>
     <div class="modal-actions">
       <button type="button" class="ghost" data-close-modal>Keep travelling</button>
-      <a class="primary" href="my-journeys.php">End journey</a>
+      <button type="button" class="danger" id="confirmEndJourneyBtn">End journey</button>
     </div>
   </div>
 </div>
+<script>
+const ACTIVE_JOURNEY_ID = <?= (int) $activeJourney['id'] ?>;
+const JOURNEY_START_LAT = <?= $activeJourney['start_lat'] !== null ? (float) $activeJourney['start_lat'] : 'null' ?>;
+const JOURNEY_START_LNG = <?= $activeJourney['start_lng'] !== null ? (float) $activeJourney['start_lng'] : 'null' ?>;
+const JOURNEY_END_LAT = <?= $activeJourney['end_lat'] !== null ? (float) $activeJourney['end_lat'] : 'null' ?>;
+const JOURNEY_END_LNG = <?= $activeJourney['end_lng'] !== null ? (float) $activeJourney['end_lng'] : 'null' ?>;
+</script>
+<?php endif; ?>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="dashboard.js"></script>
+<script src="notifications-widget.js"></script>
+<?php if ($activeJourney): ?>
 <script src="tracking.js"></script>
+<?php endif; ?>
 </body>
 </html>

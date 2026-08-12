@@ -19,14 +19,14 @@ require __DIR__ . '/backend/includes/auth-guard.php';
     <a href="my-journeys.php"><i class="fa-solid fa-map-location-dot"></i>My Journeys</a>
     <a href="live-tracking.php"><i class="fa-solid fa-location-crosshairs"></i>Live Tracking</a>
     <a href="places.php"><i class="fa-solid fa-map-pin"></i>Places</a>
-    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages <em>3</em></a>
+    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages<?= $unreadConversationCount > 0 ? " <em>" . $unreadConversationCount . "</em>" : "" ?></a>
     <a href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Trusted Contacts</a>
     <a href="safety.php"><i class="fa-solid fa-shield-halved"></i>Safety</a>
   </nav>
   <div class="bottom">
     <a class="active" href="settings.php"><i class="fa-solid fa-gear"></i>Settings</a>
     <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span><?= htmlspecialchars(strtoupper(substr($userName, 0, 1))) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
+    <div class="account"><span id="sidebarAvatar"><?= st_avatar_inner($currentUser) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
   </div>
 </aside>
 
@@ -39,15 +39,12 @@ require __DIR__ . '/backend/includes/auth-guard.php';
       <button type="button" class="notif-bell" id="notifBell"><i class="fa-regular fa-bell"></i><span class="notif-dot" id="notifDot"></span></button>
       <div class="notif-dropdown" id="notifDropdown">
         <div class="notif-dropdown-head"><b>Notifications</b><a href="notifications.php">View all</a></div>
-        <div class="notif-list">
-          <div class="notif-item unread"><i class="fa-solid fa-route"></i><div><b>Journey started</b><small>Nairobi to Nyeri &middot; 8:40 AM</small></div></div>
-          <div class="notif-item unread"><i class="fa-regular fa-message"></i><div><b>New message from Mary Wanjiku</b><small>Let me know when you arrive &middot; 10 min ago</small></div></div>
-          <div class="notif-item"><i class="fa-solid fa-location-arrow"></i><div><b>John Mwangi is now watching your journey</b><small>Yesterday</small></div></div>
-          <div class="notif-item"><i class="fa-solid fa-flag-checkered"></i><div><b>Journey completed</b><small>Nairobi to Meru &middot; 2 days ago</small></div></div>
+        <div class="notif-list" id="notifDropdownList">
+          <p class="notif-empty">Loading...</p>
         </div>
       </div>
     </div>
-    <div class="avatar"><?= htmlspecialchars(strtoupper(substr($userName, 0, 1))) ?></div>
+    <div class="avatar" id="headerAvatar"><?= st_avatar_inner($currentUser) ?></div>
   </div>
 </header>
 
@@ -71,6 +68,14 @@ require __DIR__ . '/backend/includes/auth-guard.php';
       <div>
         <button type="button" class="btn-ghost" id="changePhotoBtn">Change photo</button>
         <input type="file" id="avatarInput" accept="image/*" style="display:none">
+      <div class="big-avatar" id="profileAvatarPreview"><?= st_avatar_inner($currentUser) ?></div>
+      <div>
+        <input type="file" id="avatarFileInput" accept="image/png,image/jpeg,image/webp" style="display:none">
+        <button type="button" class="btn-ghost" id="changePhotoBtn">Change photo</button>
+        <?php if (!empty($currentUser['avatar_path'])): ?>
+        <button type="button" class="btn-ghost" id="removePhotoBtn" style="color:#c94b4b">Remove photo</button>
+        <?php endif; ?>
+        <p class="hint" style="margin-top:8px">JPG, PNG or WEBP, up to 4 MB</p>
       </div>
     </div>
     <div class="form-grid" style="padding:0">
@@ -122,7 +127,7 @@ require __DIR__ . '/backend/includes/auth-guard.php';
     <hr style="border:0;border-top:1px solid var(--line);margin:22px 0">
     <button type="button" class="btn-ghost" style="color:#c94b4b;border-color:#f3d4d4" data-open-modal="deleteAccountModal">Delete my account</button>
     <hr style="border:0;border-top:1px solid var(--line);margin:22px 0">
-    <a class="btn-ghost" href="admin-dashboard.php"><i class="fa-solid fa-building"></i>Manage an organization</a>
+    <a class="btn-ghost" href="org-dashboard.php"><i class="fa-solid fa-building"></i>Manage an organization</a>
   </div>
 
 </div>
@@ -374,5 +379,7 @@ require __DIR__ . '/backend/includes/auth-guard.php';
   })();
 </script>
 <script src="dashboard.js"></script>
+<script src="notifications-widget.js"></script>
+<script src="settings.js"></script>
 </body>
 </html>

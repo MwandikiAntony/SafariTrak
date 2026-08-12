@@ -1,4 +1,8 @@
-const map = L.map('map').setView([-1.05, 36.95], 10);
+const initialCenter = (JOURNEY_START_LAT !== null && JOURNEY_START_LNG !== null)
+  ? [JOURNEY_START_LAT, JOURNEY_START_LNG]
+  : [-1.286389, 36.817223];
+
+const map = L.map('map').setView(initialCenter, 12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '© OpenStreetMap contributors'
@@ -18,22 +22,118 @@ const destinationIcon = L.divIcon({
   iconAnchor: [9, 9]
 });
 
-const start = [-1.286389, 36.817223];
-const destination = [-0.4197, 36.9483];
+const marker = L.marker(initialCenter, { icon: currentIcon }).addTo(map).bindPopup('<b>You are here</b>');
 
-const marker = L.marker(start, { icon: currentIcon }).addTo(map).bindPopup('<b>You are here</b><br>Along Nairobi to Nyeri road');
-L.marker(destination, { icon: destinationIcon }).addTo(map).bindPopup('<b>Destination</b><br>Nyeri Town');
-L.polyline([start, destination], { color: '#10b981', weight: 3, dashArray: '6 8' }).addTo(map);
-map.fitBounds([start, destination], { padding: [40, 40] });
+if (JOURNEY_END_LAT !== null && JOURNEY_END_LNG !== null) {
+  L.marker([JOURNEY_END_LAT, JOURNEY_END_LNG], { icon: destinationIcon }).addTo(map).bindPopup('<b>Destination</b>');
+  if (JOURNEY_START_LAT !== null) {
+    map.fitBounds([[JOURNEY_START_LAT, JOURNEY_START_LNG], [JOURNEY_END_LAT, JOURNEY_END_LNG]], { padding: [40, 40] });
+  }
+}
+
+let lastPositionTime = 0;
+
+async function pushPosition(lat, lng, speedKmh) {
+  try {
+    const response = await fetch('backend/api/journeys/update-position.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ journey_id: ACTIVE_JOURNEY_ID, lat, lng, speed_kmh: speedKmh }),
+    });
+    const data = await response.json();
+    if (data.success) {
+      const coveredEl = document.getElementById('coveredKm');
+      if (coveredEl) coveredEl.textContent = data.covered_km + ' km';
+    }
+  } catch (err) {
+    /* silent, keep tracking even if a single update fails */
+  }
+}
+
+function handlePosition(position) {
+  const lat = position.coords.latitude;
+  const lng = position.coords.longitude;
+  const speedMs = position.coords.speed;
+  const speedKmh = (speedMs !== null && speedMs !== undefined) ? Math.round(speedMs * 3.6) : null;
+
+  marker.setLatLng([lat, lng]);
+
+  const speedEl = document.getElementById('currentSpeed');
+  if (speedEl) speedEl.textContent = speedKmh !== null ? speedKmh + ' km/h' : '-';
+
+  const now = Date.now();
+  if (now - lastPositionTime > 15000) {
+    lastPositionTime = now;
+    pushPosition(lat, lng, speedKmh);
+  }
+}
 
 function locate() {
   if (!navigator.geolocation) return alert('Location is not supported by this browser.');
   navigator.geolocation.getCurrentPosition(p => {
-    const x = [p.coords.latitude, p.coords.longitude];
-    marker.setLatLng(x);
-    map.setView(x, 13);
+    handlePosition(p);
+    map.setView([p.coords.latitude, p.coords.longitude], 15);
     marker.openPopup();
   }, () => alert('Please allow SafariTrak to access your location.'), { enableHighAccuracy: true, timeout: 10000 });
 }
 
 document.getElementById('myLocation')?.addEventListener('click', locate);
+
+if (navigator.geolocation) {
+  navigator.geolocation.watchPosition(handlePosition, () => {}, { enableHighAccuracy: true, maximumAge: 10000 });
+}
+
+document.getElementById('confirmEndJourneyBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('confirmEndJourneyBtn');
+  btn.disabled = true;
+  btn.textContent = 'Ending...';
+
+  try {
+    const response = await fetch('backend/api/journeys/end.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ journey_id: ACTIVE_JOURNEY_ID }),
+    });
+    const data = await response.json();
+
+    if (!data.success) {
+      alert(data.message || 'That journey could not be ended.');
+      btn.disabled = false;
+      btn.textContent = 'End journey';
+      return;
+    }
+
+    window.location.href = 'my-journeys.php';
+  } catch (err) {
+    alert('Something went wrong ending that journey. Please try again.');
+    btn.disabled = false;
+    btn.textContent = 'End journey';
+  }
+});
+
+document.querySelectorAll('.stop-sharing-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    if (!confirm('Stop sharing this journey with them?')) return;
+    btn.disabled = true;
+
+    try {
+      const response = await fetch('backend/api/journeys/stop-sharing.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ journey_id: ACTIVE_JOURNEY_ID, trusted_contact_id: btn.getAttribute('data-contact-id') }),
+      });
+      const data = await response.json();
+
+      if (!data.success) {
+        alert(data.message || 'That could not be completed.');
+        btn.disabled = false;
+        return;
+      }
+
+      btn.parentElement.remove();
+    } catch (err) {
+      alert('Something went wrong. Please try again.');
+      btn.disabled = false;
+    }
+  });
+});

@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/session.php';
+require_once __DIR__ . '/helpers.php';
 
 $safaritrakUserId = st_current_user_id();
 
@@ -21,3 +22,7 @@ if (!$currentUser) {
 
 $userName = $currentUser['full_name'];
 $avatarPath = $currentUser['avatar_path'] ?? null;
+
+$unreadMsgStmt = safaritrak_db()->prepare('SELECT COUNT(DISTINCT sender_id) FROM messages WHERE receiver_id = ? AND read_at IS NULL');
+$unreadMsgStmt->execute([$safaritrakUserId]);
+$unreadConversationCount = (int) $unreadMsgStmt->fetchColumn();

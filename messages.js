@@ -1,76 +1,371 @@
-const conversations = {
-  jm: {
-    name: 'John Mwangi',
-    status: 'Watching your journey',
-    initials: 'JM',
-    messages: [
-      { from: 'them', text: 'Hey, are you on the road yet?' },
-      { from: 'me', text: 'Yes, just left Nairobi heading to Nyeri.' },
-      { from: 'them', text: 'Sure, I can see you on the map now' }
-    ]
-  },
-  mw: {
-    name: 'Mary Wanjiku',
-    status: 'Available',
-    initials: 'MW',
-    messages: [
-      { from: 'them', text: 'How is the trip going?' },
-      { from: 'me', text: 'Going well, about halfway there.' },
-      { from: 'them', text: 'Let me know when you arrive' }
-    ]
-  },
-  pk: {
-    name: 'Peter Kariuki',
-    status: 'Offline',
-    initials: 'PK',
-    messages: [
-      { from: 'me', text: 'Heading out now, will share my location.' },
-      { from: 'them', text: 'Safe travels!' }
-    ]
+let conversations = [];
+let activeUserId = null;
+
+function relativeChatTime(dateString) {
+  if (!dateString) return '';
+  const then = new Date(dateString.replace(' ', 'T'));
+  const diffMin = Math.floor((Date.now() - then.getTime()) / 60000);
+  if (diffMin < 1) return 'Just now';
+  if (diffMin < 60) return diffMin + 'm ago';
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return diffHr + 'h ago';
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay === 1) return 'Yesterday';
+  return then.toLocaleDateString();
+}
+
+function initialsOf(name) {
+  return name.split(/\s+/).slice(0, 2).map(p => p.charAt(0).toUpperCase()).join('') || '?';
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function renderConversationList() {
+  const container = document.getElementById('chatListItems');
+
+  if (conversations.length === 0) {
+    container.innerHTML = '<p class="notif-empty">No confirmed trusted contacts yet. Add one to start messaging.</p>';
+    return;
   }
-};
 
-const chatItems = document.querySelectorAll('.chat-item');
-const chatHead = document.getElementById('chatHead');
-const chatMessages = document.getElementById('chatMessages');
-const chatForm = document.getElementById('chatForm');
-const chatInput = document.getElementById('chatInput');
+  container.innerHTML = conversations.map(c => {
+    const activeClass = c.user_id === activeUserId ? ' active' : '';
+    const preview = c.last_message
+      ? (c.last_message_mine ? 'You: ' : '') + escapeHtml(c.last_message)
+      : 'Say hello';
+    const avatar = c.avatar_path
+      ? '<img src="' + c.avatar_path + '" class="avatar-img" alt="">'
+      : initialsOf(c.full_name);
+    const badge = c.unread_count > 0 ? '<em style="background:var(--gold);color:#fff;border-radius:20px;padding:2px 7px;font-size:9px;margin-left:auto">' + c.unread_count + '</em>' : '';
 
-function renderChat(key) {
-  const convo = conversations[key];
-  if (!convo) return;
+    return '<div class="chat-item' + activeClass + '" data-user-id="' + c.user_id + '" data-name="' + escapeHtml(c.full_name) + '">' +
+      '<span class="person">' + avatar + '</span>' +
+      '<div class="meta"><b>' + escapeHtml(c.full_name) + '</b><small>' + preview + '</small></div>' +
+      badge +
+      '</div>';
+  }).join('');
 
-  chatHead.innerHTML = '<span class="person">' + convo.initials + '</span><div><b>' + convo.name + '</b><small>&#9679; ' + convo.status + '</small></div>';
-
-  chatMessages.innerHTML = '';
-  convo.messages.forEach(m => {
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble ' + (m.from === 'me' ? 'me' : 'them');
-    bubble.textContent = m.text;
-    chatMessages.appendChild(bubble);
+  container.querySelectorAll('.chat-item').forEach(item => {
+    item.addEventListener('click', () => openThread(parseInt(item.getAttribute('data-user-id'), 10)));
   });
+}
+
+async function loadConversations() {
+  try {
+    const response = await fetch('backend/api/messages/conversations.php');
+    const data = await response.json();
+    if (!data.success) return;
+
+    conversations = data.conversations;
+    renderConversationList();
+
+    const params = new URLSearchParams(window.location.search);
+    const preselect = params.get('to');
+
+    if (preselect) {
+      openThread(parseInt(preselect, 10));
+    } else if (conversations.length > 0) {
+      openThread(conversations[0].user_id);
+    }
+  } catch (err) {
+    document.getElementById('chatListItems').innerHTML = '<p class="notif-empty">Could not load conversations.</p>';
+  }
+}
+
+async function openThread(userId) {
+  activeUserId = userId;
+  renderConversationList();
+
+  const chatHead = document.getElementById('chatHead');
+  const chatMessages = document.getElementById('chatMessages');
+  const chatForm = document.getElementById('chatForm');
+
+  chatMessages.innerHTML = '<p class="notif-empty">Loading...</p>';
+
+  try {
+    const response = await fetch('backend/api/messages/thread.php?with=' + userId);
+    const data = await response.json();
+
+    if (!data.success) {
+      chatMessages.innerHTML = '<p class="notif-empty">' + escapeHtml(data.message || 'Could not load this conversation.') + '</p>';
+      chatForm.style.display = 'none';
+      return;
+    }
+
+    const avatar = data.other.avatar_path
+      ? '<img src="' + data.other.avatar_path + '" class="avatar-img" alt="">'
+      : initialsOf(data.other.full_name);
+
+    chatHead.innerHTML = '<span class="person">' + avatar + '</span><div><b>' + escapeHtml(data.other.full_name) + '</b></div>';
+    chatForm.style.display = 'flex';
+
+    renderMessages(data.messages);
+
+    const conv = conversations.find(c => c.user_id === userId);
+    if (conv) conv.unread_count = 0;
+    renderConversationList();
+  } catch (err) {
+    chatMessages.innerHTML = '<p class="notif-empty">Something went wrong loading this conversation.</p>';
+  }
+}
+
+function renderMessages(messages) {
+  const chatMessages = document.getElementById('chatMessages');
+
+  if (messages.length === 0) {
+    chatMessages.innerHTML = '<p class="notif-empty">No messages yet. Say hello.</p>';
+    return;
+  }
+
+  chatMessages.innerHTML = messages.map(m =>
+    '<div class="bubble ' + (m.is_mine ? 'me' : 'them') + '">' + escapeHtml(m.body) + '</div>'
+  ).join('');
+
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-chatItems.forEach(item => {
-  item.addEventListener('click', () => {
-    chatItems.forEach(i => i.classList.remove('active'));
-    item.classList.add('active');
-    renderChat(item.getAttribute('data-chat'));
+document.getElementById('chatForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || !activeUserId) return;
+
+  input.disabled = true;
+
+  try {
+    const response = await fetch('backend/api/messages/send.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: activeUserId, body: text }),
+    });
+    const data = await response.json();
+
+    if (!data.success) {
+      alert(data.message || 'That message could not be sent.');
+      return;
+    }
+
+    const chatMessages = document.getElementById('chatMessages');
+    if (chatMessages.querySelector('.notif-empty')) chatMessages.innerHTML = '';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble me';
+    bubble.textContent = text;
+    chatMessages.appendChild(bubble);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    input.value = '';
+
+    const conv = conversations.find(c => c.user_id === activeUserId);
+    if (conv) {
+      conv.last_message = text;
+      conv.last_message_mine = true;
+      conv.last_message_at = data.created_at;
+      conversations.sort((a, b) => (b.last_message_at || '').localeCompare(a.last_message_at || ''));
+      renderConversationList();
+    }
+  } catch (err) {
+    alert('Something went wrong sending that message. Please try again.');
+  } finally {
+    input.disabled = false;
+    input.focus();
+  }
+});
+
+document.getElementById('chatSearch')?.addEventListener('input', (e) => {
+  const term = e.target.value.trim().toLowerCase();
+  document.querySelectorAll('#chatListItems .chat-item').forEach(item => {
+    const name = (item.getAttribute('data-name') || '').toLowerCase();
+    item.style.display = name.includes(term) ? 'flex' : 'none';
   });
 });
 
-chatForm?.addEventListener('submit', e => {
+loadConversations();
+
+
+function relativeChatTime(dateString) {
+  if (!dateString) return '';
+  const then = new Date(dateString.replace(' ', 'T'));
+  const diffMin = Math.floor((Date.now() - then.getTime()) / 60000);
+  if (diffMin < 1) return 'Just now';
+  if (diffMin < 60) return diffMin + 'm ago';
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return diffHr + 'h ago';
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay === 1) return 'Yesterday';
+  return then.toLocaleDateString();
+}
+
+function initialsOf(name) {
+  return name.split(/\s+/).slice(0, 2).map(p => p.charAt(0).toUpperCase()).join('') || '?';
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function renderConversationList() {
+  const container = document.getElementById('chatListItems');
+
+  if (conversations.length === 0) {
+    container.innerHTML = '<p class="notif-empty">No confirmed trusted contacts yet. Add one to start messaging.</p>';
+    return;
+  }
+
+  container.innerHTML = conversations.map(c => {
+    const activeClass = c.user_id === activeUserId ? ' active' : '';
+    const preview = c.last_message
+      ? (c.last_message_mine ? 'You: ' : '') + escapeHtml(c.last_message)
+      : 'Say hello';
+    const avatar = c.avatar_path
+      ? '<img src="' + c.avatar_path + '" class="avatar-img" alt="">'
+      : initialsOf(c.full_name);
+    const badge = c.unread_count > 0 ? '<em style="background:var(--gold);color:#fff;border-radius:20px;padding:2px 7px;font-size:9px;margin-left:auto">' + c.unread_count + '</em>' : '';
+
+    return '<div class="chat-item' + activeClass + '" data-user-id="' + c.user_id + '" data-name="' + escapeHtml(c.full_name) + '">' +
+      '<span class="person">' + avatar + '</span>' +
+      '<div class="meta"><b>' + escapeHtml(c.full_name) + '</b><small>' + preview + '</small></div>' +
+      badge +
+      '</div>';
+  }).join('');
+
+  container.querySelectorAll('.chat-item').forEach(item => {
+    item.addEventListener('click', () => openThread(parseInt(item.getAttribute('data-user-id'), 10)));
+  });
+}
+
+async function loadConversations() {
+  try {
+    const response = await fetch('backend/api/messages/conversations.php');
+    const data = await response.json();
+    if (!data.success) return;
+
+    conversations = data.conversations;
+    renderConversationList();
+
+    const params = new URLSearchParams(window.location.search);
+    const preselect = params.get('to');
+
+    if (preselect) {
+      openThread(parseInt(preselect, 10));
+    } else if (conversations.length > 0) {
+      openThread(conversations[0].user_id);
+    }
+  } catch (err) {
+    document.getElementById('chatListItems').innerHTML = '<p class="notif-empty">Could not load conversations.</p>';
+  }
+}
+
+async function openThread(userId) {
+  activeUserId = userId;
+  renderConversationList();
+
+  const chatHead = document.getElementById('chatHead');
+  const chatMessages = document.getElementById('chatMessages');
+  const chatForm = document.getElementById('chatForm');
+
+  chatMessages.innerHTML = '<p class="notif-empty">Loading...</p>';
+
+  try {
+    const response = await fetch('backend/api/messages/thread.php?with=' + userId);
+    const data = await response.json();
+
+    if (!data.success) {
+      chatMessages.innerHTML = '<p class="notif-empty">' + escapeHtml(data.message || 'Could not load this conversation.') + '</p>';
+      chatForm.style.display = 'none';
+      return;
+    }
+
+    const avatar = data.other.avatar_path
+      ? '<img src="' + data.other.avatar_path + '" class="avatar-img" alt="">'
+      : initialsOf(data.other.full_name);
+
+    chatHead.innerHTML = '<span class="person">' + avatar + '</span><div><b>' + escapeHtml(data.other.full_name) + '</b></div>';
+    chatForm.style.display = 'flex';
+
+    renderMessages(data.messages);
+
+    const conv = conversations.find(c => c.user_id === userId);
+    if (conv) conv.unread_count = 0;
+    renderConversationList();
+  } catch (err) {
+    chatMessages.innerHTML = '<p class="notif-empty">Something went wrong loading this conversation.</p>';
+  }
+}
+
+function renderMessages(messages) {
+  const chatMessages = document.getElementById('chatMessages');
+
+  if (messages.length === 0) {
+    chatMessages.innerHTML = '<p class="notif-empty">No messages yet. Say hello.</p>';
+    return;
+  }
+
+  chatMessages.innerHTML = messages.map(m =>
+    '<div class="bubble ' + (m.is_mine ? 'me' : 'them') + '">' + escapeHtml(m.body) + '</div>'
+  ).join('');
+
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+document.getElementById('chatForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const text = chatInput.value.trim();
-  if (!text) return;
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || !activeUserId) return;
 
-  const activeItem = document.querySelector('.chat-item.active');
-  const key = activeItem ? activeItem.getAttribute('data-chat') : 'jm';
+  input.disabled = true;
 
-  conversations[key].messages.push({ from: 'me', text });
-  renderChat(key);
-  chatInput.value = '';
+  try {
+    const response = await fetch('backend/api/messages/send.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: activeUserId, body: text }),
+    });
+    const data = await response.json();
+
+    if (!data.success) {
+      alert(data.message || 'That message could not be sent.');
+      return;
+    }
+
+    const chatMessages = document.getElementById('chatMessages');
+    if (chatMessages.querySelector('.notif-empty')) chatMessages.innerHTML = '';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble me';
+    bubble.textContent = text;
+    chatMessages.appendChild(bubble);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    input.value = '';
+
+    const conv = conversations.find(c => c.user_id === activeUserId);
+    if (conv) {
+      conv.last_message = text;
+      conv.last_message_mine = true;
+      conv.last_message_at = data.created_at;
+      conversations.sort((a, b) => (b.last_message_at || '').localeCompare(a.last_message_at || ''));
+      renderConversationList();
+    }
+  } catch (err) {
+    alert('Something went wrong sending that message. Please try again.');
+  } finally {
+    input.disabled = false;
+    input.focus();
+  }
 });
 
-renderChat('jm');
+document.getElementById('chatSearch')?.addEventListener('input', (e) => {
+  const term = e.target.value.trim().toLowerCase();
+  document.querySelectorAll('#chatListItems .chat-item').forEach(item => {
+    const name = (item.getAttribute('data-name') || '').toLowerCase();
+    item.style.display = name.includes(term) ? 'flex' : 'none';
+  });
+});
+
+loadConversations();

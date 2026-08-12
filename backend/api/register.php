@@ -80,6 +80,14 @@ $devOtp = null;
 $subject = 'SafariTrak verification code';
 $body = "Your SafariTrak verification code is: {$otpCode}\n\nThis code expires in 15 minutes.\n";
 $headers = "From: SafariTrak <no-reply@safaritrak.local>\r\n";
+$linkStmt = $db->prepare(
+    'UPDATE trusted_contacts SET contact_user_id = ? WHERE invite_phone = ? AND contact_user_id IS NULL'
+);
+$linkStmt->execute([$userId, $phoneDigits]);
+
+$userStmt = $db->prepare('SELECT id, full_name, username FROM users WHERE id = ?');
+$userStmt->execute([$userId]);
+$user = $userStmt->fetch();
 
 $mailSent = st_send_mail($email, $subject, $body, 'no-reply@safaritrak.local', 'SafariTrak');
 
