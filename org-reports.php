@@ -1,7 +1,7 @@
 <?php
 require __DIR__ . '/backend/includes/org-guard.php';
 
-if (!$myOrg) {
+if (!$myOrg || $myOrgSuspended) {
     header('Location: org-dashboard.php');
     exit;
 }
