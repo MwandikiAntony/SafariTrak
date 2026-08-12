@@ -63,17 +63,24 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 
   <div class="settings-panel active" data-tab-panel-group="settings" data-tab-panel="profile">
     <div class="avatar-row">
-      <div class="big-avatar"><?= strtoupper(substr($userName, 0, 1)) ?></div>
-      <div><button type="button" class="btn-ghost">Change photo</button></div>
+      <?php if (!empty($avatarPath)): ?>
+        <div class="big-avatar" id="bigAvatar" style="background-image:url('<?= htmlspecialchars($avatarPath) ?>')"></div>
+      <?php else: ?>
+        <div class="big-avatar" id="bigAvatar"><?= strtoupper(substr($userName, 0, 1)) ?></div>
+      <?php endif; ?>
+      <div>
+        <button type="button" class="btn-ghost" id="changePhotoBtn">Change photo</button>
+        <input type="file" id="avatarInput" accept="image/*" style="display:none">
+      </div>
     </div>
     <div class="form-grid" style="padding:0">
-      <div class="form-field"><label>Full name</label><input type="text" value="<?= htmlspecialchars($userName) ?>"></div>
-      <div class="form-field"><label>Phone number</label><input type="tel" placeholder="0712 345 678"></div>
-      <div class="form-field full"><label>Email address</label><input type="email" placeholder="you@example.com"></div>
-      <div class="form-field full"><label>Home address</label><input type="text" placeholder="Used to suggest your usual routes"></div>
+      <div class="form-field"><label>Full name</label><input id="profileFullName" type="text" value="<?= htmlspecialchars($userName) ?>"></div>
+      <div class="form-field"><label>Phone number</label><input id="profilePhone" type="tel" value="<?= htmlspecialchars($currentUser['phone'] ?? '') ?>" placeholder="0712 345 678"></div>
+      <div class="form-field full"><label>Email address</label><input id="profileEmail" type="email" value="<?= htmlspecialchars($currentUser['email'] ?? '') ?>" placeholder="you@example.com"></div>
+      <div class="form-field full"><label>Home address</label><input id="profileAddress" type="text" value="<?= htmlspecialchars($currentUser['home_address'] ?? '') ?>" placeholder="Used to suggest your usual routes"></div>
     </div>
     <div class="form-actions" style="padding-left:0;padding-right:0">
-      <button type="button" class="btn-primary" onclick="alert('Once the backend is connected, this will update your profile.')">Save changes</button>
+      <button type="button" class="btn-primary" id="saveProfileBtn">Save changes</button>
     </div>
   </div>
 
@@ -92,9 +99,26 @@ require __DIR__ . '/backend/includes/auth-guard.php';
   </div>
 
   <div class="settings-panel" data-tab-panel-group="settings" data-tab-panel="account">
-    <div class="form-field" style="max-width:360px;margin-bottom:14px"><label>Current password</label><input type="password" placeholder="Enter current password"></div>
-    <div class="form-field" style="max-width:360px;margin-bottom:14px"><label>New password</label><input type="password" placeholder="Enter new password"></div>
-    <button type="button" class="btn-primary" onclick="alert('Once the backend is connected, this will update your password.')">Update password</button>
+    <div class="panel-section" style="margin-bottom:24px;">
+      <h3>Account details</h3>
+      <div class="form-grid" style="padding:0">
+        <div class="form-field full"><label>Username</label><input type="text" value="<?= htmlspecialchars($currentUser['username'] ?? '') ?>" readonly></div>
+        <div class="form-field full"><label>Email address</label><input type="email" value="<?= htmlspecialchars($currentUser['email'] ?? '') ?>" readonly></div>
+        <div class="form-field full"><label>Phone number</label><input type="tel" value="<?= htmlspecialchars($currentUser['phone'] ?? '') ?>" readonly></div>
+      </div>
+    </div>
+
+    <div class="panel-section" style="margin-bottom:24px;">
+      <h3>Change password</h3>
+      <div class="form-field" style="max-width:360px;margin-bottom:14px"><input type="password" id="accountCurrentPassword" placeholder="Enter current password"></div>
+      <p class="field-error" id="accountCurrentPasswordError">Enter your current password</p>
+      <div class="form-field" style="max-width:360px;margin-bottom:14px"><input type="password" id="accountNewPassword" placeholder="Enter new password"></div>
+      <p class="field-error" id="accountNewPasswordError">New password must be at least 6 characters</p>
+      <div class="form-field" style="max-width:360px;margin-bottom:14px"><input type="password" id="accountConfirmPassword" placeholder="Confirm new password"></div>
+      <p class="field-error" id="accountConfirmPasswordError">Passwords must match</p>
+      <button type="button" class="btn-primary" id="updatePasswordBtn">Update password</button>
+    </div>
+
     <hr style="border:0;border-top:1px solid var(--line);margin:22px 0">
     <button type="button" class="btn-ghost" style="color:#c94b4b;border-color:#f3d4d4" data-open-modal="deleteAccountModal">Delete my account</button>
     <hr style="border:0;border-top:1px solid var(--line);margin:22px 0">
@@ -114,11 +138,241 @@ require __DIR__ . '/backend/includes/auth-guard.php';
     <div class="modal-body"><p>This cannot be undone. We recommend downloading your journey history first once that feature is available.</p></div>
     <div class="modal-actions">
       <button type="button" class="ghost" data-close-modal>Cancel</button>
-      <button type="button" class="danger" onclick="alert('Once the backend is connected, this will permanently delete your account.')">Delete account</button>
+      <button type="button" class="danger" id="deleteAccountConfirmBtn">Delete account</button>
     </div>
   </div>
 </div>
 
+<script>
+  (function(){
+    const changeBtn = document.getElementById('changePhotoBtn');
+    const input = document.getElementById('avatarInput');
+    const bigAvatar = document.getElementById('bigAvatar');
+
+    async function uploadAvatar(file) {
+      try {
+        const fd = new FormData();
+        fd.append('avatar', file);
+
+        const res = await fetch('backend/api/upload-avatar.php', {
+          method: 'POST',
+          body: fd
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data || !data.success) {
+          throw new Error(data && data.message ? data.message : 'Upload failed');
+        }
+        return data;
+      } catch (err) {
+        throw err;
+      }
+    }
+
+    function showToast(message, kind = 'info') {
+      const el = document.createElement('div');
+      el.textContent = message;
+      el.setAttribute('role', 'status');
+      const bg = kind === 'error' ? '#c94b4b' : '#39a859';
+      el.style.cssText = 'position:fixed;right:20px;bottom:20px;padding:12px 16px;color:#fff;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.15);font-weight:600;z-index:9999;background:'+bg+';opacity:0;transform:translateY(8px);transition:opacity .18s,transform .18s';
+      document.body.appendChild(el);
+      requestAnimationFrame(()=>{ el.style.opacity = '1'; el.style.transform = 'translateY(0)'; });
+      setTimeout(()=>{ el.style.opacity = '0'; el.style.transform = 'translateY(8px)'; setTimeout(()=>el.remove(),200); }, 3000);
+    }
+
+    if (changeBtn && input) {
+      changeBtn.addEventListener('click', () => input.click());
+
+      input.addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+          alert('Please choose an image file.');
+          return;
+        }
+
+        // show local preview immediately
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+          bigAvatar.style.backgroundImage = `url(${ev.target.result})`;
+          bigAvatar.textContent = '';
+          bigAvatar.classList.add('has-image');
+        };
+        reader.readAsDataURL(file);
+
+        // upload in background
+        changeBtn.disabled = true;
+        changeBtn.textContent = 'Uploading...';
+        try {
+          const result = await uploadAvatar(file);
+          // if server returns a final URL, use it
+          if (result.url) {
+            bigAvatar.style.backgroundImage = `url(${result.url})`;
+            bigAvatar.textContent = '';
+          }
+          // also update header avatar if present
+          const headerAvatar = document.querySelector('.avatar');
+          if (headerAvatar) {
+            headerAvatar.style.backgroundImage = `url(${result.url})`;
+            headerAvatar.textContent = '';
+          }
+        } catch (err) {
+          alert(err.message || 'Upload failed');
+        } finally {
+          changeBtn.disabled = false;
+          changeBtn.textContent = 'Change photo';
+        }
+      });
+    }
+    
+    // Save profile handler
+    const saveBtn = document.getElementById('saveProfileBtn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+        const payload = {
+          full_name: document.getElementById('profileFullName').value.trim(),
+          phone: document.getElementById('profilePhone').value.trim(),
+          email: document.getElementById('profileEmail').value.trim(),
+          home_address: document.getElementById('profileAddress').value.trim()
+        };
+        try {
+          const res = await fetch('backend/api/update-profile.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json().catch(() => null);
+          if (!res.ok || !data || !data.success) {
+            throw new Error(data && data.message ? data.message : 'Save failed');
+          }
+          // update UI name and greeting
+          const headerNameEl = document.querySelector('.account b');
+          if (headerNameEl) headerNameEl.textContent = payload.full_name;
+          const greetingEl = document.getElementById('greeting');
+          if (greetingEl) greetingEl.textContent = greetingEl.textContent.split(',')[0] + ', ' + payload.full_name;
+          showToast('Changes saved');
+        } catch (err) {
+          showToast(err.message || 'Failed to save profile', 'error');
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Save changes';
+        }
+      });
+    }
+
+    const updatePasswordBtn = document.getElementById('updatePasswordBtn');
+    if (updatePasswordBtn) {
+      const currentInput = document.getElementById('accountCurrentPassword');
+      const newInput = document.getElementById('accountNewPassword');
+      const confirmInput = document.getElementById('accountConfirmPassword');
+      const currentError = document.getElementById('accountCurrentPasswordError');
+      const newError = document.getElementById('accountNewPasswordError');
+      const confirmError = document.getElementById('accountConfirmPasswordError');
+
+      const clearPasswordErrors = () => {
+        if (currentError) currentError.classList.remove('show');
+        if (newError) newError.classList.remove('show');
+        if (confirmError) confirmError.classList.remove('show');
+      };
+
+      updatePasswordBtn.addEventListener('click', async () => {
+        clearPasswordErrors();
+        let valid = true;
+
+        if (!currentInput.value.trim()) {
+          currentError.textContent = 'Enter your current password';
+          currentError.classList.add('show');
+          valid = false;
+        }
+        if (newInput.value.trim().length < 6) {
+          newError.textContent = 'New password must be at least 6 characters';
+          newError.classList.add('show');
+          valid = false;
+        }
+        if (confirmInput.value.trim() !== newInput.value.trim()) {
+          confirmError.textContent = 'Passwords must match';
+          confirmError.classList.add('show');
+          valid = false;
+        }
+        if (!valid) return;
+
+        updatePasswordBtn.disabled = true;
+        updatePasswordBtn.textContent = 'Updating...';
+
+        try {
+          const res = await fetch('backend/api/change-password.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              current_password: currentInput.value,
+              new_password: newInput.value,
+              confirm_password: confirmInput.value
+            })
+          });
+          const data = await res.json().catch(() => null);
+          if (!res.ok || !data || !data.success) {
+            const message = data && data.message ? data.message : 'Unable to update password';
+            if (data && data.errors) {
+              if (data.errors.current_password) {
+                currentError.textContent = data.errors.current_password;
+                currentError.classList.add('show');
+              }
+              if (data.errors.new_password) {
+                newError.textContent = data.errors.new_password;
+                newError.classList.add('show');
+              }
+              if (data.errors.confirm_password) {
+                confirmError.textContent = data.errors.confirm_password;
+                confirmError.classList.add('show');
+              }
+            }
+            throw new Error(message);
+          }
+
+          currentInput.value = '';
+          newInput.value = '';
+          confirmInput.value = '';
+          showToast('Password updated successfully');
+        } catch (err) {
+          showToast(err.message || 'Password update failed', 'error');
+        } finally {
+          updatePasswordBtn.disabled = false;
+          updatePasswordBtn.textContent = 'Update password';
+        }
+      });
+    }
+
+  const deleteAccountBtn = document.getElementById('deleteAccountConfirmBtn');
+  if (deleteAccountBtn) {
+    deleteAccountBtn.addEventListener('click', async () => {
+      if (!confirm('Are you sure you want to permanently delete your account? This cannot be undone.')) {
+        return;
+      }
+
+      deleteAccountBtn.disabled = true;
+      deleteAccountBtn.textContent = 'Deleting...';
+
+      try {
+        const res = await fetch('backend/api/delete-account.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data || !data.success) {
+          throw new Error(data && data.message ? data.message : 'Failed to delete account');
+        }
+        window.location.href = data.redirect || 'login.html';
+      } catch (err) {
+        showToast(err.message || 'Account deletion failed', 'error');
+      } finally {
+        deleteAccountBtn.disabled = false;
+        deleteAccountBtn.textContent = 'Delete account';
+      }
+    });
+  }
+  })();
+</script>
 <script src="dashboard.js"></script>
 </body>
 </html>

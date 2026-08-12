@@ -1,5 +1,11 @@
 <?php
 require __DIR__ . '/backend/includes/auth-guard.php';
+
+$groupStmt = safaritrak_db()->prepare(
+    'SELECT id, title, destination_label, departure_at, status FROM group_journeys WHERE organizer_id = ? ORDER BY departure_at DESC'
+);
+$groupStmt->execute([$safaritrakUserId]);
+$groupJourneys = $groupStmt->fetchAll();
 ?>
 <!doctype html>
 <html lang="en">
@@ -60,18 +66,24 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 <div class="card">
   <div class="card-head"><div><label>YOUR GROUPS</label><h3>Group journeys</h3></div></div>
   <div class="journey-list">
-
-    <div class="journey-row" data-open-modal="groupDetailModal1">
-      <div class="jicon"><i class="fa-solid fa-user-group"></i></div>
-      <div class="jinfo"><b>Family trip: Nairobi &rarr; Diani</b><small>4 members &middot; Departs Friday, 6:00 AM</small></div>
-      <div class="jmeta"><strong>490 km</strong><span class="badge active">Upcoming</span></div>
-    </div>
-
-    <div class="journey-row" data-open-modal="groupDetailModal2">
-      <div class="jicon"><i class="fa-solid fa-user-group"></i></div>
-      <div class="jinfo"><b>Church convoy: Nairobi &rarr; Kisumu</b><small>9 members &middot; Completed 2 weeks ago</small></div>
-      <div class="jmeta"><strong>350 km</strong><span class="badge completed">Completed</span></div>
-    </div>
+    <?php if (empty($groupJourneys)): ?>
+      <div class="empty" style="padding: 40px 24px; text-align:center;">
+        <i class="fa-solid fa-user-group" style="font-size: 28px; color: #6c6c7a;"></i>
+        <p style="margin-top: 14px; color: var(--muted);">No group journeys yet. Create one to start inviting people.</p>
+      </div>
+    <?php else: ?>
+      <?php foreach ($groupJourneys as $group): ?>
+        <?php
+          $departure = $group['departure_at'] ? date('D, j M g:i A', strtotime($group['departure_at'])) : 'No departure set';
+          $statusClass = $group['status'] === 'completed' ? 'completed' : ($group['status'] === 'cancelled' ? 'cancelled' : 'active');
+        ?>
+        <div class="journey-row">
+          <div class="jicon"><i class="fa-solid fa-user-group"></i></div>
+          <div class="jinfo"><b><?= htmlspecialchars($group['title']) ?></b><small><?= htmlspecialchars($group['destination_label']) ?> &middot; <?= htmlspecialchars($departure) ?></small></div>
+          <div class="jmeta"><strong>--</strong><span class="badge <?= htmlspecialchars($statusClass) ?>"><?= htmlspecialchars(ucfirst($group['status'])) ?></span></div>
+        </div>
+      <?php endforeach; ?>
+    <?php endif; ?>
 
   </div>
 </div>
@@ -103,20 +115,20 @@ require __DIR__ . '/backend/includes/auth-guard.php';
   <div class="modal">
     <div class="modal-head"><div><h3>Create a group journey</h3><p>Set up a trip and invite the people travelling with you.</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
-      <div class="form-field" style="margin-bottom:12px"><label>Trip name</label><input type="text" placeholder="e.g. Family trip to Diani"></div>
-      <div class="form-field" style="margin-bottom:12px"><label>Destination</label><input type="text" placeholder="e.g. Diani Beach"></div>
-      <div class="form-field" style="margin-bottom:12px"><label>Departure</label><input type="datetime-local"></div>
+      <div class="form-field" style="margin-bottom:12px"><label>Trip name</label><input id="groupNameInput" type="text" placeholder="e.g. Family trip to Diani"></div>
+      <div class="form-field" style="margin-bottom:12px"><label>Destination</label><input id="groupDestinationInput" type="text" placeholder="e.g. Diani Beach"></div>
+      <div class="form-field" style="margin-bottom:12px"><label>Departure</label><input id="groupDepartureInput" type="datetime-local"></div>
       <div class="form-field"><label>Invite from your trusted contacts</label>
         <div class="share-contacts">
-          <div class="share-contact-row"><span class="person">JM</span><span>John Mwangi</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
-          <div class="share-contact-row"><span class="person">MW</span><span>Mary Wanjiku</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
-          <div class="share-contact-row"><span class="person">PK</span><span>Peter Kariuki</span><label class="toggle"><input type="checkbox"><span></span></label></div>
+          <div class="share-contact-row" data-contact-name="John Mwangi" data-contact-phone="0712345678"><span class="person">JM</span><span>John Mwangi</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
+          <div class="share-contact-row" data-contact-name="Mary Wanjiku" data-contact-phone="0722123456"><span class="person">MW</span><span>Mary Wanjiku</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
+          <div class="share-contact-row" data-contact-name="Peter Kariuki" data-contact-phone="0733123456"><span class="person">PK</span><span>Peter Kariuki</span><label class="toggle"><input type="checkbox"><span></span></label></div>
         </div>
       </div>
     </div>
     <div class="modal-actions">
       <button type="button" class="ghost" data-close-modal>Cancel</button>
-      <button type="button" class="primary" onclick="alert('Once the backend is connected, this will create the group journey and send invites.')">Create and invite</button>
+      <button type="button" class="primary" id="createGroupButton">Create and invite</button>
     </div>
   </div>
 </div>

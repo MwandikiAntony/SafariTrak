@@ -1,5 +1,11 @@
 <?php
 require __DIR__ . '/backend/includes/auth-guard.php';
+
+$contactsStmt = safaritrak_db()->prepare(
+    'SELECT tc.id, tc.invite_name, tc.invite_phone, tc.relationship, tc.status, u.full_name AS user_full_name, u.phone AS user_phone FROM trusted_contacts tc LEFT JOIN users u ON tc.contact_user_id = u.id WHERE tc.owner_id = ? ORDER BY tc.created_at DESC'
+);
+$contactsStmt->execute([$safaritrakUserId]);
+$trustedContacts = $contactsStmt->fetchAll();
 ?>
 <!doctype html>
 <html lang="en">
@@ -59,36 +65,34 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 </div>
 
 <div class="contacts-grid">
-
-  <div class="contact-card">
-    <div class="top"><span class="person">JM</span><div><b>John Mwangi</b><small>Brother &middot; &#9679; Available</small></div></div>
-    <div class="permission-row"><span>See my live location</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
-    <div class="permission-row"><span>Journey start and end alerts</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
-    <div class="permission-row"><span>SOS alerts</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
-    <div class="card-buttons"><a href="messages.php" class="btn-ghost">Message</a><button type="button" class="btn-ghost remove-btn" data-open-modal="removeModalJM">Remove</button></div>
-  </div>
-
-  <div class="contact-card">
-    <div class="top"><span class="person">MW</span><div><b>Mary Wanjiku</b><small>Spouse &middot; &#9679; Available</small></div></div>
-    <div class="permission-row"><span>See my live location</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
-    <div class="permission-row"><span>Journey start and end alerts</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
-    <div class="permission-row"><span>SOS alerts</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
-    <div class="card-buttons"><a href="messages.php" class="btn-ghost">Message</a><button type="button" class="btn-ghost remove-btn" data-open-modal="removeModalMW">Remove</button></div>
-  </div>
-
-  <div class="contact-card">
-    <div class="top"><span class="person">PK</span><div><b>Peter Kariuki</b><small>Colleague &middot; &#9679; Offline</small></div></div>
-    <div class="permission-row"><span>See my live location</span><label class="toggle"><input type="checkbox"><span></span></label></div>
-    <div class="permission-row"><span>Journey start and end alerts</span><label class="toggle"><input type="checkbox" checked><span></span></label></div>
-    <div class="permission-row"><span>SOS alerts</span><label class="toggle"><input type="checkbox"><span></span></label></div>
-    <div class="card-buttons"><a href="messages.php" class="btn-ghost">Message</a><button type="button" class="btn-ghost remove-btn" data-open-modal="removeModalPK">Remove</button></div>
-  </div>
+  <?php if (empty($trustedContacts)): ?>
+    <div class="empty" style="padding: 40px 24px; text-align:center;">
+      <i class="fa-solid fa-user-group" style="font-size: 28px; color: #6c6c7a;"></i>
+      <p style="margin-top: 14px; color: var(--muted);">You don't have any trusted contacts yet.</p>
+    </div>
+  <?php else: ?>
+    <?php foreach ($trustedContacts as $contact): ?>
+      <?php
+        $initials = implode('', array_map(fn($part) => strtoupper($part[0] ?? ''), explode(' ', trim($contact['invite_name'] ?? $contact['user_full_name'] ?? ''))));
+        if ($initials === '') {
+          $initials = strtoupper(substr($contact['invite_phone'] ?? '??', 0, 2));
+        }
+        $statusLabel = $contact['status'] === 'confirmed' ? 'Available' : ($contact['status'] === 'declined' ? 'Offline' : 'Invited');
+      ?>
+      <div class="contact-card">
+        <div class="top"><span class="person"><?= htmlspecialchars($initials) ?></span><div><b><?= htmlspecialchars($contact['invite_name'] ?: $contact['user_full_name']) ?></b><small><?= htmlspecialchars($contact['relationship'] ?? 'Trusted contact') ?> &middot; &#9679; <?= htmlspecialchars($statusLabel) ?></small></div></div>
+        <div class="permission-row"><span>See my live location</span><label class="toggle"><input type="checkbox" <?= $contact['status'] === 'confirmed' ? 'checked' : '' ?>><span></span></label></div>
+        <div class="permission-row"><span>Journey start and end alerts</span><label class="toggle"><input type="checkbox" <?= $contact['status'] === 'confirmed' ? 'checked' : '' ?>><span></span></label></div>
+        <div class="permission-row"><span>SOS alerts</span><label class="toggle"><input type="checkbox" <?= $contact['status'] === 'confirmed' ? 'checked' : '' ?>><span></span></label></div>
+        <div class="card-buttons"><a href="messages.php" class="btn-ghost">Message</a><button type="button" class="btn-ghost remove-btn" data-contact-id="<?= htmlspecialchars($contact['id']) ?>">Remove</button></div>
+      </div>
+    <?php endforeach; ?>
+  <?php endif; ?>
 
   <button type="button" class="add-contact-card" data-open-modal="addContactModal">
     <i class="fa-solid fa-user-plus"></i>
     <span>Add someone new</span>
   </button>
-
 </div>
 
 </div>
@@ -100,13 +104,14 @@ require __DIR__ . '/backend/includes/auth-guard.php';
   <div class="modal">
     <div class="modal-head"><div><h3>Add a trusted contact</h3><p>Invite someone to keep track of your journeys.</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
-      <div class="form-field" style="margin-bottom:12px"><label>Full name</label><input type="text" placeholder="e.g. Grace Njeri"></div>
-      <div class="form-field" style="margin-bottom:12px"><label>Phone number</label><input type="tel" placeholder="e.g. 0712 345 678"></div>
-      <div class="form-field"><label>Relationship</label><input type="text" placeholder="e.g. Sister, Friend, Colleague"></div>
+      <div class="form-field" style="margin-bottom:12px"><label for="inviteName">Full name</label><input id="inviteName" type="text" placeholder="e.g. Grace Njeri"></div>
+      <div class="form-field" style="margin-bottom:12px"><label for="invitePhone">Phone number</label><input id="invitePhone" type="tel" placeholder="e.g. 0712 345 678"></div>
+      <div class="form-field"><label for="inviteRelationship">Relationship</label><input id="inviteRelationship" type="text" placeholder="e.g. Sister, Friend, Colleague"></div>
+      <p id="inviteError" style="color:#b02a37; margin-top:10px; display:none;"></p>
     </div>
     <div class="modal-actions">
       <button type="button" class="ghost" data-close-modal>Cancel</button>
-      <button type="button" class="primary" onclick="alert('Once the backend is connected, this will send an invite to your new trusted contact.')">Send invite</button>
+      <button type="button" class="primary" id="sendInviteBtn">Send invite</button>
     </div>
   </div>
 </div>
@@ -141,6 +146,72 @@ require __DIR__ . '/backend/includes/auth-guard.php';
   </div>
 </div>
 
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const inviteName = document.getElementById('inviteName');
+    const invitePhone = document.getElementById('invitePhone');
+    const inviteRelationship = document.getElementById('inviteRelationship');
+    const inviteError = document.getElementById('inviteError');
+    const sendInviteBtn = document.getElementById('sendInviteBtn');
+
+    const showError = message => {
+      if (!inviteError) return;
+      inviteError.textContent = message;
+      inviteError.style.display = 'block';
+    };
+
+    const clearError = () => {
+      if (!inviteError) return;
+      inviteError.textContent = '';
+      inviteError.style.display = 'none';
+    };
+
+    sendInviteBtn?.addEventListener('click', async () => {
+      clearError();
+
+      const name = inviteName?.value.trim() || '';
+      const phone = invitePhone?.value.trim() || '';
+      const relationship = inviteRelationship?.value.trim() || '';
+
+      if (!name) {
+        showError('Please enter the contact full name.');
+        inviteName.focus();
+        return;
+      }
+      if (!phone) {
+        showError('Please enter the contact phone number.');
+        invitePhone.focus();
+        return;
+      }
+
+      sendInviteBtn.disabled = true;
+      sendInviteBtn.textContent = 'Sending...';
+
+      try {
+        const response = await fetch('backend/api/add-trusted-contact.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invite_name: name, invite_phone: phone, relationship }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          showError(data.message || 'Unable to add trusted contact.');
+          return;
+        }
+
+        window.location.reload();
+      } catch (error) {
+        showError('Unable to connect to the backend.');
+        console.error(error);
+      } finally {
+        sendInviteBtn.disabled = false;
+        sendInviteBtn.textContent = 'Send invite';
+      }
+    });
+  });
+</script>
 <script src="dashboard.js"></script>
 </body>
 </html>

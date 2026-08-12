@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafariTrak | Verify Email</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body>
+  <div class="login-card">
+    <div class="brand-mark">
+      <i class="fa-solid fa-route"></i>
+      <span>SafariTrak</span>
+    </div>
+    <h1 class="title">Verify your email</h1>
+    <p class="subtitle">Enter the code we sent to your email to complete signup.</p>
+    <div id="devOtpBox" style="display:none; margin-bottom: 12px; padding: 14px 16px; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.25); border-radius: 14px; color: #0f172a;">
+      <p style="margin:0 0 8px; font-size:0.95rem;">Email sending is not configured here. Use this code instead:</p>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input type="text" id="devOtpCode" readonly style="flex:1; padding: 10px 12px; border-radius: 12px; border:1px solid #cbd5e1; background:#f8fafc; font-weight:700; letter-spacing:0.15em;" />
+        <button type="button" id="copyOtpBtn" class="login-btn" style="padding: 10px 14px; font-size:0.9rem;">Copy</button>
+      </div>
+      <p id="copyOtpStatus" style="margin: 8px 0 0; font-size:0.85rem; color:#0f766e; display:none;">Copied to clipboard!</p>
+    </div>
+
+    <form class="login-form" id="verifyForm" novalidate>
+      <div class="input-group">
+        <input type="text" id="verifyCode" placeholder="Enter verification code" required>
+        <i class="fa-regular fa-key input-icon"></i>
+      </div>
+      <p class="field-error" id="verifyCodeError">Enter the verification code.</p>
+      <p class="field-error" id="verifyGeneralError">The code is invalid or expired.</p>
+      <button type="submit" class="login-btn">Verify Email</button>
+    </form>
+
+    <p class="signup-text">Already verified? <a href="login.html">Login</a></p>
+  </div>
+
+  <script src="auth.js"></script>
+  <script>
+    const devOtpBox = document.getElementById('devOtpBox');
+    const devOtpCode = document.getElementById('devOtpCode');
+    const copyOtpBtn = document.getElementById('copyOtpBtn');
+    const copyOtpStatus = document.getElementById('copyOtpStatus');
+    const devOtp = new URLSearchParams(window.location.search).get('dev_otp');
+
+    if (devOtp && devOtpBox && devOtpCode) {
+      devOtpCode.value = devOtp;
+      devOtpBox.style.display = 'block';
+    }
+
+    if (copyOtpBtn && devOtpCode && copyOtpStatus) {
+      copyOtpBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(devOtpCode.value);
+          copyOtpStatus.textContent = 'Copied to clipboard!';
+          copyOtpStatus.style.display = 'block';
+          setTimeout(() => {
+            copyOtpStatus.style.display = 'none';
+          }, 2000);
+        } catch (err) {
+          copyOtpStatus.textContent = 'Copy failed. Please copy manually.';
+          copyOtpStatus.style.display = 'block';
+        }
+      });
+    }
+
+    const verifyForm = document.getElementById('verifyForm');
+    if (verifyForm) {
+      const submitBtn = verifyForm.querySelector('.login-btn');
+      verifyForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const verifyCode = document.getElementById('verifyCode');
+
+        if (!verifyCode.value.trim()) {
+          showError('verifyCodeError', true);
+          return;
+        }
+        showError('verifyCodeError', false);
+        showError('verifyGeneralError', false);
+
+        setSubmitting(submitBtn, true, 'Verifying...');
+        const email = new URLSearchParams(window.location.search).get('email') || '';
+        const { ok, data } = await postJSON('backend/api/verify-email.php', {
+          email: email.trim(),
+          code: verifyCode.value.trim()
+        });
+        setSubmitting(submitBtn, false, 'Verify Email');
+
+        if (ok && data.success) {
+          window.location.href = data.redirect || 'login.html';
+          return;
+        }
+
+        showError('verifyGeneralError', true, data.message || 'Invalid verification code.');
+      });
+    }
+  </script>
+</body>
+</html>

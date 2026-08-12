@@ -34,7 +34,7 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 <main>
 <header>
   <button class="menu" id="menu"><i class="fa-solid fa-bars"></i></button>
-  <div><label>YOUR TRAVEL COMMAND CENTER</label><h1>Good morning, <?= htmlspecialchars($userName) ?></h1></div>
+  <div><label>YOUR TRAVEL COMMAND CENTER</label><h1 id="greeting">Good morning, <?= htmlspecialchars($userName) ?></h1></div>
   <div class="head-actions">
     <div class="notif-wrap">
       <button type="button" class="notif-bell" id="notifBell"><i class="fa-regular fa-bell"></i><span class="notif-dot" id="notifDot"></span></button>
@@ -129,7 +129,20 @@ require __DIR__ . '/backend/includes/auth-guard.php';
     </div>
   </div>
 </div>
-
+  <script>
+    (function(){
+      const name = <?php echo json_encode($userName); ?>;
+      const el = document.getElementById('greeting');
+      if (!el) return;
+      const h = new Date().getHours();
+      let greeting;
+      if (h >= 5 && h < 12) greeting = 'Good morning';
+      else if (h >= 12 && h < 17) greeting = 'Good afternoon';
+      else if (h >= 17 && h < 21) greeting = 'Good evening';
+      else greeting = 'Good night';
+      el.textContent = greeting + ', ' + name;
+    })();
+  </script>
 <div class="modal-overlay" id="sosModal">
   <div class="modal sos">
     <div class="modal-head">

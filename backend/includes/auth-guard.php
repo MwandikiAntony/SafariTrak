@@ -9,7 +9,7 @@ if ($safaritrakUserId === null) {
     exit;
 }
 
-$stmt = safaritrak_db()->prepare('SELECT id, full_name, username, email, phone FROM users WHERE id = ?');
+$stmt = safaritrak_db()->prepare('SELECT id, full_name, username, email, phone, avatar_path FROM users WHERE id = ?');
 $stmt->execute([$safaritrakUserId]);
 $currentUser = $stmt->fetch();
 
@@ -20,3 +20,4 @@ if (!$currentUser) {
 }
 
 $userName = $currentUser['full_name'];
+$avatarPath = $currentUser['avatar_path'] ?? null;

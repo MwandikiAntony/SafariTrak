@@ -39,7 +39,20 @@ async function postJSON(url, payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
-  const data = await response.json().catch(() => ({}));
+
+  const text = await response.text();
+  let data;
+  if (!text) {
+    data = {};
+  } else {
+    try {
+      data = JSON.parse(text);
+    } catch (err) {
+      data = { success: false, message: text.trim() || 'Invalid server response.' };
+      console.error('postJSON parse error:', err, 'response text:', text);
+    }
+  }
+
   return { ok: response.ok, status: response.status, data };
 }
 
@@ -164,14 +177,22 @@ if (signupForm) {
         full_name: 'fullNameError',
         username: 'signupUsernameError',
         email: 'emailError',
+        phone: 'signupPhoneError',
         password: 'signupPasswordError',
         terms: 'termsError'
       };
+      let showedFieldError = false;
       Object.keys(data.errors).forEach(key => {
-        if (map[key]) showError(map[key], true, data.errors[key]);
+        if (map[key]) {
+          showedFieldError = true;
+          showError(map[key], true, data.errors[key]);
+        }
       });
+      if (!showedFieldError) {
+        showError('signupGeneralError', true, data.message || 'Something went wrong. Please try again.');
+      }
     } else {
-      showError('emailError', true, data.message || 'Something went wrong. Please try again.');
+      showError('signupGeneralError', true, data.message || 'Something went wrong. Please try again.');
     }
   });
 }

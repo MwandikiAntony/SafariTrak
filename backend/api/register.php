@@ -1,6 +1,8 @@
 <?php
 
+require_once __DIR__ . '/../config/env.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/mailer.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/session.php';
 
@@ -63,18 +65,30 @@ if ($existing) {
 }
 
 $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+$otpCode = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+$otpExpiresAt = date('Y-m-d H:i:s', time() + 15 * 60);
 
 $insertStmt = $db->prepare(
-    'INSERT INTO users (full_name, username, email, phone, password_hash) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO users (full_name, username, email, phone, password_hash, email_verified, otp_code, otp_expires_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)'
 );
-$insertStmt->execute([$fullName, $username, $email, $phoneDigits, $passwordHash]);
+$insertStmt->execute([$fullName, $username, $email, $phoneDigits, $passwordHash, $otpCode, $otpExpiresAt]);
 
 $userId = (int) $db->lastInsertId();
 
-$userStmt = $db->prepare('SELECT id, full_name, username FROM users WHERE id = ?');
-$userStmt->execute([$userId]);
-$user = $userStmt->fetch();
+$mailSent = false;
+$devOtp = null;
+$subject = 'SafariTrak verification code';
+$body = "Your SafariTrak verification code is: {$otpCode}\n\nThis code expires in 15 minutes.\n";
+$headers = "From: SafariTrak <no-reply@safaritrak.local>\r\n";
 
-st_login_user($user, false);
+$mailSent = st_send_mail($email, $subject, $body, 'no-reply@safaritrak.local', 'SafariTrak');
 
-st_json_ok(['redirect' => 'index.php']);
+if (!$mailSent) {
+    $devOtp = $otpCode;
+}
+
+st_json_ok([
+    'redirect' => 'verify-email.html?email=' . urlencode($email) . ($devOtp ? '&dev_otp=' . urlencode($devOtp) : ''),
+    'dev_otp' => $devOtp,
+    'mail_sent' => $mailSent,
+]);
