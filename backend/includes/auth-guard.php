@@ -10,13 +10,19 @@ if ($safaritrakUserId === null) {
     exit;
 }
 
-$stmt = safaritrak_db()->prepare('SELECT id, full_name, username, email, phone, avatar_path FROM users WHERE id = ?');
+$stmt = safaritrak_db()->prepare('SELECT id, full_name, username, email, phone, avatar_path, is_suspended FROM users WHERE id = ?');
 $stmt->execute([$safaritrakUserId]);
 $currentUser = $stmt->fetch();
 
 if (!$currentUser) {
     st_logout();
     header('Location: login.html');
+    exit;
+}
+
+if ((int) $currentUser['is_suspended'] === 1) {
+    st_logout();
+    header('Location: login.html?suspended=1');
     exit;
 }
 
