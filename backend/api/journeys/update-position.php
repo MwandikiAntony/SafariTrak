@@ -21,7 +21,7 @@ if ($lat === null || $lng === null) {
 
 $db = safaritrak_db();
 
-$journeyStmt = $db->prepare('SELECT id, distance_km FROM journeys WHERE id = ? AND user_id = ? AND status = "active"');
+$journeyStmt = $db->prepare('SELECT id, distance_km, covered_km FROM journeys WHERE id = ? AND user_id = ? AND status = "active"');
 $journeyStmt->execute([$journeyId, $userId]);
 $journey = $journeyStmt->fetch();
 
@@ -29,31 +29,34 @@ if (!$journey) {
     st_json_error('That journey is not active.', 404);
 }
 
+// Fetch the most recent coordinate before inserting the new point
 $lastPointStmt = $db->prepare('SELECT lat, lng FROM journey_positions WHERE journey_id = ? ORDER BY id DESC LIMIT 1');
 $lastPointStmt->execute([$journeyId]);
 $lastPoint = $lastPointStmt->fetch();
 
-$db->prepare('INSERT INTO journey_positions (journey_id, lat, lng, speed_kmh) VALUES (?, ?, ?, ?)')
-    ->execute([$journeyId, $lat, $lng, $speedKmh]);
+// Insert the new position ping
+$insertStmt = $db->prepare('INSERT INTO journey_positions (journey_id, lat, lng, speed_kmh) VALUES (?, ?, ?, ?)');
+$insertStmt->execute([$journeyId, $lat, $lng, $speedKmh]);
 
-$coveredStmt = $db->prepare(
-    'SELECT lat, lng FROM journey_positions WHERE journey_id = ? ORDER BY id ASC'
-);
-$coveredStmt->execute([$journeyId]);
-$points = $coveredStmt->fetchAll();
+// Incremental distance calculation (O(1) complexity)
+$currentCovered = (float) ($journey['covered_km'] ?? 0.0);
 
-$coveredKm = 0.0;
-for ($i = 1; $i < count($points); $i++) {
-    $leg = st_distance_km(
-        (float) $points[$i - 1]['lat'],
-        (float) $points[$i - 1]['lng'],
-        (float) $points[$i]['lat'],
-        (float) $points[$i]['lng']
+if ($lastPoint) {
+    $legKm = st_distance_km(
+        (float) $lastPoint['lat'],
+        (float) $lastPoint['lng'],
+        $lat,
+        $lng
     );
-    $coveredKm += $leg ?? 0;
+    if ($legKm !== null && $legKm > 0) {
+        $currentCovered += $legKm;
+        
+        $updateCoveredStmt = $db->prepare('UPDATE journeys SET covered_km = ? WHERE id = ?');
+        $updateCoveredStmt->execute([$currentCovered, $journeyId]);
+    }
 }
 
 st_json_ok([
-    'covered_km' => round($coveredKm, 2),
+    'covered_km' => round($currentCovered, 2),
     'total_km' => $journey['distance_km'] !== null ? (float) $journey['distance_km'] : null,
 ]);

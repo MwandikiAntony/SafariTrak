@@ -19,14 +19,14 @@ require __DIR__ . '/backend/includes/auth-guard.php';
     <a href="my-journeys.php"><i class="fa-solid fa-map-location-dot"></i>My Journeys</a>
     <a href="live-tracking.php"><i class="fa-solid fa-location-crosshairs"></i>Live Tracking</a>
     <a href="places.php"><i class="fa-solid fa-map-pin"></i>Places</a>
-    <a class="active" href="messages.php"><i class="fa-regular fa-message"></i>Messages<?= $unreadConversationCount > 0 ? " <em>" . $unreadConversationCount . "</em>" : "" ?></a>
+    <a class="active" href="messages.php"><i class="fa-regular fa-message"></i>Messages<?= !empty($unreadConversationCount) && $unreadConversationCount > 0 ? " <em>" . (int)$unreadConversationCount . "</em>" : "" ?></a>
     <a href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Trusted Contacts</a>
     <a href="safety.php"><i class="fa-solid fa-shield-halved"></i>Safety</a>
   </nav>
   <div class="bottom">
     <a href="settings.php"><i class="fa-solid fa-gear"></i>Settings</a>
     <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span><?= st_avatar_inner($currentUser) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
+    <div class="account"><span><?= st_avatar_inner($currentUser) ?></span><div><b><?= htmlspecialchars($userName ?? '', ENT_QUOTES, 'UTF-8') ?></b><small>Traveler</small></div></div>
   </div>
 </aside>
 

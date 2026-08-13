@@ -4,30 +4,30 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 $db = safaritrak_db();
 
 $journeysStmt = $db->prepare(
-    'SELECT j.*,
-            (SELECT COUNT(*) FROM journey_shares js WHERE js.journey_id = j.id) AS share_count
+    'SELECT j.*, 
+            COUNT(DISTINCT js.id) AS share_count,
+            GROUP_CONCAT(DISTINCT COALESCE(u.full_name, tc.invite_name) SEPARATOR ", ") AS shared_names
      FROM journeys j
+     LEFT JOIN journey_shares js ON js.journey_id = j.id
+     LEFT JOIN trusted_contacts tc ON tc.id = js.trusted_contact_id
+     LEFT JOIN users u ON u.id = tc.contact_user_id
      WHERE j.user_id = ?
+     GROUP BY j.id
      ORDER BY j.started_at DESC'
 );
 $journeysStmt->execute([$currentUser['id']]);
 $journeys = $journeysStmt->fetchAll();
 
-$sharedNamesStmt = $db->prepare(
-    'SELECT COALESCE(u.full_name, tc.invite_name) AS display_name
-     FROM journey_shares js
-     JOIN trusted_contacts tc ON tc.id = js.trusted_contact_id
-     LEFT JOIN users u ON u.id = tc.contact_user_id
-     WHERE js.journey_id = ?'
-);
-
 $groupStmt = $db->prepare(
-    'SELECT gj.*, (SELECT COUNT(*) FROM group_members gm WHERE gm.group_journey_id = gj.id) AS member_count
+    'SELECT gj.*, 
+            (SELECT COUNT(*) FROM group_members gm WHERE gm.group_journey_id = gj.id) AS member_count
      FROM group_journeys gj
-     WHERE gj.organizer_id = ?
+     LEFT JOIN group_members gm_user ON gm_user.group_journey_id = gj.id
+     WHERE gj.organizer_id = ? OR gm_user.user_id = ?
+     GROUP BY gj.id
      ORDER BY gj.departure_at DESC'
 );
-$groupStmt->execute([$currentUser['id']]);
+$groupStmt->execute([$currentUser['id'], $currentUser['id']]);
 $groupJourneys = $groupStmt->fetchAll();
 
 function journey_duration(string $start, ?string $end): string {
@@ -147,10 +147,6 @@ function journey_duration(string $start, ?string $end): string {
 </div>
 
 <?php foreach ($journeys as $j): ?>
-<?php
-  $sharedNamesStmt->execute([$j['id']]);
-  $sharedNames = array_column($sharedNamesStmt->fetchAll(), 'display_name');
-?>
 <div class="modal-overlay" id="journeyModal<?= (int) $j['id'] ?>">
   <div class="modal">
     <div class="modal-head">
@@ -159,8 +155,8 @@ function journey_duration(string $start, ?string $end): string {
     </div>
     <div class="modal-body">
       <p><b>Distance:</b> <?= $j['distance_km'] !== null ? number_format((float) $j['distance_km'], 1) . ' km' : 'Not available' ?><?= $j['ended_at'] ? ' &middot; <b>Duration:</b> ' . journey_duration($j['started_at'], $j['ended_at']) : '' ?></p>
-      <?php if (!empty($sharedNames)): ?>
-      <p style="margin-top:8px"><b>Shared with:</b> <?= htmlspecialchars(implode(', ', $sharedNames)) ?></p>
+      <?php if (!empty($j['shared_names'])): ?>
+      <p style="margin-top:8px"><b>Shared with:</b> <?= htmlspecialchars($j['shared_names']) ?></p>
       <?php endif; ?>
       <?php if ($j['note']): ?>
       <p style="margin-top:8px"><b>Note:</b> <?= htmlspecialchars($j['note']) ?></p>

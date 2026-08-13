@@ -26,7 +26,7 @@ const marker = L.marker(initialCenter, { icon: currentIcon }).addTo(map).bindPop
 
 if (JOURNEY_END_LAT !== null && JOURNEY_END_LNG !== null) {
   L.marker([JOURNEY_END_LAT, JOURNEY_END_LNG], { icon: destinationIcon }).addTo(map).bindPopup('<b>Destination</b>');
-  if (JOURNEY_START_LAT !== null) {
+  if (JOURNEY_START_LAT !== null && JOURNEY_START_LNG !== null) {
     map.fitBounds([[JOURNEY_START_LAT, JOURNEY_START_LNG], [JOURNEY_END_LAT, JOURNEY_END_LNG]], { padding: [40, 40] });
   }
 }
@@ -43,10 +43,12 @@ async function pushPosition(lat, lng, speedKmh) {
     const data = await response.json();
     if (data.success) {
       const coveredEl = document.getElementById('coveredKm');
-      if (coveredEl) coveredEl.textContent = data.covered_km + ' km';
+      if (coveredEl && data.covered_km !== undefined) {
+        coveredEl.textContent = data.covered_km + ' km';
+      }
     }
   } catch (err) {
-    /* silent, keep tracking even if a single update fails */
+    /* Silent retry on next interval */
   }
 }
 
@@ -59,7 +61,9 @@ function handlePosition(position) {
   marker.setLatLng([lat, lng]);
 
   const speedEl = document.getElementById('currentSpeed');
-  if (speedEl) speedEl.textContent = speedKmh !== null ? speedKmh + ' km/h' : '-';
+  if (speedEl) {
+    speedEl.textContent = speedKmh !== null ? speedKmh + ' km/h' : '-';
+  }
 
   const now = Date.now();
   if (now - lastPositionTime > 15000) {
@@ -120,7 +124,10 @@ document.querySelectorAll('.stop-sharing-btn').forEach(btn => {
       const response = await fetch('backend/api/journeys/stop-sharing.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ journey_id: ACTIVE_JOURNEY_ID, trusted_contact_id: btn.getAttribute('data-contact-id') }),
+        body: JSON.stringify({
+          journey_id: ACTIVE_JOURNEY_ID,
+          trusted_contact_id: btn.getAttribute('data-contact-id')
+        }),
       });
       const data = await response.json();
 
@@ -130,7 +137,13 @@ document.querySelectorAll('.stop-sharing-btn').forEach(btn => {
         return;
       }
 
-      btn.parentElement.remove();
+      const row = btn.closest('div');
+      const container = row.parentElement;
+      row.remove();
+
+      if (container && container.querySelectorAll('div').length === 0) {
+        container.innerHTML = '<p class="hint" style="padding:16px 21px;color:var(--muted);font-size:11px">You did not share this journey with anyone.</p>';
+      }
     } catch (err) {
       alert('Something went wrong. Please try again.');
       btn.disabled = false;

@@ -94,10 +94,15 @@ $watchedJourneys = $watchedStmt->fetchAll();
 <div class="card">
   <div class="journey-list">
     <?php foreach ($watchedJourneys as $wj): ?>
-    <a href="watch-journey.php?id=<?= (int) $wj['id'] ?>" class="journey-row" style="text-decoration:none;color:inherit">
-      <div class="jicon"><i class="fa-solid fa-location-crosshairs"></i></div>
-      <div class="jinfo"><b><?= htmlspecialchars($wj['traveler_name']) ?></b><small><?= htmlspecialchars($wj['start_label']) ?> &rarr; <?= htmlspecialchars($wj['end_label']) ?> &middot; Started <?= (new DateTime($wj['started_at']))->format('g:i A') ?></small></div>
-      <div class="jmeta"><span class="badge active">Live</span></div>
+    <a href="live-tracking.php?id=<?= (int) $wj['id'] ?>" class="journey-row" style="display:flex;align-items:center;justify-content:space-between;padding:16px;text-decoration:none;color:inherit;border-bottom:1px solid var(--border,#eee);">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="jicon"><i class="fa-solid fa-location-crosshairs"></i></div>
+        <div class="jinfo">
+          <b><?= htmlspecialchars($wj['traveler_name']) ?></b>
+          <small style="display:block;color:var(--muted,#666);margin-top:2px"><?= htmlspecialchars($wj['start_label']) ?> &rarr; <?= htmlspecialchars($wj['end_label']) ?> &middot; Started <?= (new DateTime($wj['started_at']))->format('g:i A') ?></small>
+        </div>
+      </div>
+      <div class="jmeta"><span class="badge active" style="background:#10b981;color:#fff;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:bold;">Live</span></div>
     </a>
     <?php endforeach; ?>
   </div>
@@ -164,10 +169,12 @@ $watchedJourneys = $watchedStmt->fetchAll();
   <div class="card-head"><div><label>ALSO WATCHING</label><h3>Journeys shared with you</h3></div></div>
   <div class="journey-list">
     <?php foreach ($watchedJourneys as $wj): ?>
-    <a href="watch-journey.php?id=<?= (int) $wj['id'] ?>" class="journey-row" style="text-decoration:none;color:inherit">
-      <div class="jicon"><i class="fa-solid fa-location-crosshairs"></i></div>
-      <div class="jinfo"><b><?= htmlspecialchars($wj['traveler_name']) ?></b><small><?= htmlspecialchars($wj['start_label']) ?> &rarr; <?= htmlspecialchars($wj['end_label']) ?></small></div>
-      <div class="jmeta"><span class="badge active">Live</span></div>
+    <a href="live-tracking.php?id=<?= (int) $wj['id'] ?>" class="journey-row" style="display:flex;align-items:center;justify-content:space-between;padding:16px;text-decoration:none;color:inherit;border-bottom:1px solid var(--border,#eee);">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="jicon"><i class="fa-solid fa-location-crosshairs"></i></div>
+        <div class="jinfo"><b><?= htmlspecialchars($wj['traveler_name']) ?></b><small style="display:block;color:var(--muted,#666);margin-top:2px"><?= htmlspecialchars($wj['start_label']) ?> &rarr; <?= htmlspecialchars($wj['end_label']) ?></small></div>
+      </div>
+      <div class="jmeta"><span class="badge active" style="background:#10b981;color:#fff;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:bold;">Live</span></div>
     </a>
     <?php endforeach; ?>
   </div>

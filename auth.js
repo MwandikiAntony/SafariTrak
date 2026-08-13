@@ -59,14 +59,14 @@ if (loginForm) {
     const remember = document.getElementById('remember');
     let valid = true;
 
-    if (!username.value.trim()) {
+    if (!username || !username.value.trim()) {
       showError('loginUsernameError', true);
       valid = false;
     } else {
       showError('loginUsernameError', false);
     }
 
-    if (!password.value.trim()) {
+    if (!password || !password.value.trim()) {
       showError('loginPasswordError', true);
       valid = false;
     } else {
@@ -109,34 +109,35 @@ if (signupForm) {
 
     clearErrors(fieldIds);
 
-    if (!fullName.value.trim()) {
+    if (!fullName || !fullName.value.trim()) {
       showError('fullNameError', true);
       valid = false;
     }
 
-    if (!username.value.trim()) {
+    if (!username || !username.value.trim()) {
       showError('signupUsernameError', true);
       valid = false;
     }
 
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(email.value.trim())) {
+    const emailVal = email ? email.value.trim() : '';
+    if (!emailPattern.test(emailVal)) {
       showError('emailError', true);
       valid = false;
     }
 
-    const phoneDigits = phone.value.replace(/\D/g, '');
+    const phoneDigits = phone ? phone.value.replace(/\D/g, '') : '';
     if (phoneDigits.length < 9) {
       showError('signupPhoneError', true);
       valid = false;
     }
 
-    if (password.value.trim().length < 6) {
+    if (!password || password.value.trim().length < 6) {
       showError('signupPasswordError', true);
       valid = false;
     }
 
-    if (!terms.checked) {
+    if (!terms || !terms.checked) {
       showError('termsError', true);
       valid = false;
     }
@@ -147,7 +148,7 @@ if (signupForm) {
     const { ok, data } = await postJSON('backend/api/register.php', {
       full_name: fullName.value.trim(),
       username: username.value.trim(),
-      email: email.value.trim(),
+      email: emailVal,
       phone: phone ? phone.value.trim() : '',
       password: password.value,
       terms: terms.checked
@@ -184,7 +185,7 @@ if (forgotForm) {
     e.preventDefault();
     const contact = document.getElementById('resetContact');
 
-    if (!contact.value.trim()) {
+    if (!contact || !contact.value.trim()) {
       showError('resetContactError', true);
       return;
     }
@@ -221,14 +222,14 @@ if (resetForm) {
     const confirmPassword = document.getElementById('confirmPassword');
     let valid = true;
 
-    if (newPassword.value.trim().length < 6) {
+    if (!newPassword || newPassword.value.trim().length < 6) {
       showError('newPasswordError', true);
       valid = false;
     } else {
       showError('newPasswordError', false);
     }
 
-    if (confirmPassword.value.trim() !== newPassword.value.trim() || !confirmPassword.value.trim()) {
+    if (!confirmPassword || confirmPassword.value.trim() !== newPassword.value.trim() || !confirmPassword.value.trim()) {
       showError('confirmPasswordError', true);
       valid = false;
     } else {
@@ -260,7 +261,6 @@ if (resetForm) {
     showError('confirmPasswordError', true, data.message || 'This reset link is invalid or has expired.');
   });
 }
-
 const params = new URLSearchParams(window.location.search);
 if (params.get('suspended') === '1') {
   const subtitle = document.querySelector('.subtitle');
