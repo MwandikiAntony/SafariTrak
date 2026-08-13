@@ -51,45 +51,54 @@ togglePassword('toggleConfirmPassword', 'confirmPassword');
 const loginForm = document.getElementById('loginForm');
 if (loginForm) {
   const submitBtn = loginForm.querySelector('.login-btn');
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('loginUsername');
+  const password = document.getElementById('loginPassword');
+  const remember = document.getElementById('remember');
+  let valid = true;
 
-  loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const username = document.getElementById('loginUsername');
-    const password = document.getElementById('loginPassword');
-    const remember = document.getElementById('remember');
-    let valid = true;
+  if (!username || !username.value.trim()) {
+    showError('loginUsernameError', true);
+    valid = false;
+  } else {
+    showError('loginUsernameError', false);
+  }
 
-    if (!username || !username.value.trim()) {
-      showError('loginUsernameError', true);
-      valid = false;
-    } else {
-      showError('loginUsernameError', false);
-    }
+  if (!password || !password.value.trim()) {
+    showError('loginPasswordError', true);
+    valid = false;
+  } else {
+    showError('loginPasswordError', false);
+  }
 
-    if (!password || !password.value.trim()) {
-      showError('loginPasswordError', true);
-      valid = false;
-    } else {
-      showError('loginPasswordError', false);
-    }
+  if (!valid) return;
 
-    if (!valid) return;
+  setSubmitting(submitBtn, true, 'Login');
 
-    setSubmitting(submitBtn, true, 'Login');
-    const { ok, data } = await postJSON('backend/api/login.php', {
+  let ok = false;
+  let data = {};
+  try {
+    ({ ok, data } = await postJSON('backend/api/login.php', {
       username: username.value.trim(),
       password: password.value,
       remember: remember ? remember.checked : false
-    });
+    }));
+  } catch (err) {
     setSubmitting(submitBtn, false, 'Login');
+    showError('loginPasswordError', true, 'Could not reach the server. Please check your connection and try again.');
+    return;
+  }
 
-    if (ok && data.success) {
-      window.location.href = data.redirect || 'index.php';
-      return;
-    }
+  setSubmitting(submitBtn, false, 'Login');
 
-    showError('loginPasswordError', true, data.message || 'That username or password is not right.');
-  });
+  if (ok && data.success) {
+    window.location.href = data.redirect || 'index.php';
+    return;
+  }
+
+  showError('loginPasswordError', true, data.message || 'That username or password is not right.');
+});
 }
 
 const signupForm = document.getElementById('signupForm');

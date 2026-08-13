@@ -4,6 +4,8 @@ require_once __DIR__ . '/session.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/helpers.php';
 
+st_start_session();
+
 if (empty($_SESSION['user_id'])) {
     header('Location: login.php');
     exit();

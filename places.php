@@ -77,59 +77,9 @@ require __DIR__ . '/backend/includes/auth-guard.php';
   </div>
 
   <div class="card">
-    <div class="card-head"><div><label>RESULTS</label><h3 id="resultsCount">18 places found</h3></div></div>
-    <div class="journey-list" id="placesList">
-
-      <div class="journey-row" data-category="hospital" data-open-modal="placeModalHospital1">
-        <div class="jicon"><i class="fa-solid fa-kit-medical"></i></div>
-        <div class="jinfo"><b>Kenyatta National Hospital</b><small>Hospital &middot; 2.4 km away</small></div>
-        <div class="jmeta"><strong>Open 24 hrs</strong></div>
-      </div>
-
-      <div class="journey-row" data-category="police" data-open-modal="placeModalPolice1">
-        <div class="jicon"><i class="fa-solid fa-building-shield"></i></div>
-        <div class="jinfo"><b>Central Police Station</b><small>Police &middot; 1.1 km away</small></div>
-        <div class="jmeta"><strong>Open 24 hrs</strong></div>
-      </div>
-
-      <div class="journey-row" data-category="fuel" data-open-modal="placeModalFuel1">
-        <div class="jicon"><i class="fa-solid fa-gas-pump"></i></div>
-        <div class="jinfo"><b>Total Energies, Thika Road</b><small>Fuel station &middot; 3.6 km away</small></div>
-        <div class="jmeta"><strong>Open 24 hrs</strong></div>
-      </div>
-
-      <div class="journey-row" data-category="hotel" data-open-modal="placeModalHotel1">
-        <div class="jicon"><i class="fa-solid fa-bed"></i></div>
-        <div class="jinfo"><b>Nyeri Green Hills Hotel</b><small>Hotel &middot; 148 km away</small></div>
-        <div class="jmeta"><strong>From KSh 4,500</strong></div>
-      </div>
-
-      <div class="journey-row" data-category="restaurant" data-open-modal="placeModalRestaurant1">
-        <div class="jicon"><i class="fa-solid fa-utensils"></i></div>
-        <div class="jinfo"><b>Java House, Karen</b><small>Restaurant &middot; 5.2 km away</small></div>
-        <div class="jmeta"><strong>Open till 10 PM</strong></div>
-      </div>
-
-      <div class="journey-row" data-category="fuel" data-open-modal="placeModalFuel2">
-        <div class="jicon"><i class="fa-solid fa-gas-pump"></i></div>
-        <div class="jinfo"><b>Shell, Muranga Road</b><small>Fuel station &middot; 62 km away</small></div>
-        <div class="jmeta"><strong>Open 24 hrs</strong></div>
-      </div>
-
-      <div class="journey-row" data-category="hospital" data-open-modal="placeModalHospital2">
-        <div class="jicon"><i class="fa-solid fa-kit-medical"></i></div>
-        <div class="jinfo"><b>Nyeri County Referral Hospital</b><small>Hospital &middot; 149 km away</small></div>
-        <div class="jmeta"><strong>Open 24 hrs</strong></div>
-      </div>
-
-      <div class="journey-row" data-category="restaurant" data-open-modal="placeModalRestaurant2">
-        <div class="jicon"><i class="fa-solid fa-utensils"></i></div>
-        <div class="jinfo"><b>Trout Tree Restaurant</b><small>Restaurant &middot; 141 km away</small></div>
-        <div class="jmeta"><strong>Open till 9 PM</strong></div>
-      </div>
-
-    </div>
-    <p class="hint" id="placesEmptyState" style="display:none;padding:0 21px 21px;color:var(--muted);font-size:11px">No places found in this category yet.</p>
+    <div class="card-head"><div><label>RESULTS</label><h3 id="resultsCount">Finding places near you...</h3></div></div>
+    <div class="journey-list" id="placesList"></div>
+    <p class="hint" id="placesStatus" style="padding:0 21px 21px;color:var(--muted);font-size:11px">Getting your location...</p>
   </div>
 </div>
 
@@ -138,67 +88,23 @@ require __DIR__ . '/backend/includes/auth-guard.php';
 </main>
 </div>
 
-<div class="modal-overlay" id="placeModalHospital1">
+<div class="modal-overlay" id="placeDetailModal">
   <div class="modal">
-    <div class="modal-head"><div><h3>Kenyatta National Hospital</h3><p>Hospital &middot; 2.4 km away</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p>Kenya's largest public referral hospital, with a 24 hour emergency department.</p><p style="margin-top:8px"><b>Address:</b> Hospital Road, Upper Hill, Nairobi</p></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button><button type="button" class="primary" onclick="alert('Once the backend is connected, this will show directions to Kenyatta National Hospital.')">Get directions</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="placeModalPolice1">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Central Police Station</h3><p>Police &middot; 1.1 km away</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p>Main police station serving the central business district, open around the clock.</p><p style="margin-top:8px"><b>Address:</b> University Way, Nairobi</p></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button><button type="button" class="primary" onclick="alert('Once the backend is connected, this will show directions to Central Police Station.')">Get directions</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="placeModalFuel1">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Total Energies, Thika Road</h3><p>Fuel station &middot; 3.6 km away</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p>Fuel station with a small shop and clean restrooms, right off Thika Road.</p></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button><button type="button" class="primary" onclick="alert('Once the backend is connected, this will show directions to this fuel station.')">Get directions</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="placeModalFuel2">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Shell, Muranga Road</h3><p>Fuel station &middot; 62 km away</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p>Roadside fuel stop along Muranga Road, a good halfway point on the way to Nyeri.</p></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button><button type="button" class="primary" onclick="alert('Once the backend is connected, this will show directions to this fuel station.')">Get directions</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="placeModalHotel1">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Nyeri Green Hills Hotel</h3><p>Hotel &middot; 148 km away</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p>Comfortable stop near Nyeri town with parking and a restaurant on site.</p><p style="margin-top:8px"><b>From:</b> KSh 4,500 per night</p></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button><button type="button" class="primary" onclick="alert('Once the backend is connected, this will show directions to this hotel.')">Get directions</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="placeModalRestaurant1">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Java House, Karen</h3><p>Restaurant &middot; 5.2 km away</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p>Familiar coffee house and restaurant menu, open until 10 PM.</p></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button><button type="button" class="primary" onclick="alert('Once the backend is connected, this will show directions to Java House.')">Get directions</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="placeModalRestaurant2">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Trout Tree Restaurant</h3><p>Restaurant &middot; 141 km away</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p>Open air restaurant built around a fig tree, known for fresh trout dishes.</p></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button><button type="button" class="primary" onclick="alert('Once the backend is connected, this will show directions to Trout Tree Restaurant.')">Get directions</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="placeModalHospital2">
-  <div class="modal">
-    <div class="modal-head"><div><h3>Nyeri County Referral Hospital</h3><p>Hospital &middot; 149 km away</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p>Main public hospital serving Nyeri County, with a 24 hour emergency department.</p></div>
-    <div class="modal-actions"><button type="button" class="ghost" data-close-modal>Close</button><button type="button" class="primary" onclick="alert('Once the backend is connected, this will show directions to this hospital.')">Get directions</button></div>
+    <div class="modal-head">
+      <div>
+        <h3 id="placeDetailTitle">Place name</h3>
+        <p id="placeDetailSubtitle">Category &middot; distance</p>
+      </div>
+      <button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <p id="placeDetailAddress"></p>
+      <p style="margin-top:8px" id="placeDetailHours"></p>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="ghost" data-close-modal>Close</button>
+      <a id="placeDetailDirections" class="primary" target="_blank" rel="noopener" style="text-decoration:none;text-align:center">Get directions</a>
+    </div>
   </div>
 </div>
 

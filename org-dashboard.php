@@ -1,7 +1,4 @@
 <?php
-require __DIR__ . '/backend/includes/session.php';
-st_require_admin();
-
 require __DIR__ . '/backend/includes/org-guard.php';
 
 if ($myOrg && !$myOrgSuspended) {

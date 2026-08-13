@@ -18,8 +18,7 @@ if ($identifier === '' || $password === '') {
 
 $db = safaritrak_db();
 
-// 1. Added `role` to the SELECT query
-$stmt = $db->prepare('SELECT id, full_name, username, password_hash, is_suspended, role FROM users WHERE username = ? OR email = ? OR phone = ?');
+$stmt = $db->prepare('SELECT id, full_name, username, password_hash, is_suspended FROM users WHERE username = ? OR email = ? OR phone = ?');
 $stmt->execute([$identifier, $identifier, preg_replace('/\D/', '', $identifier)]);
 $user = $stmt->fetch();
 
@@ -33,15 +32,20 @@ if ((int) $user['is_suspended'] === 1) {
 
 st_login_user($user, $remember);
 
-// 2. Normalize user role and dynamically choose redirect target
-$userRole = strtolower(trim($user['role'] ?? 'user'));
-$redirect = ($userRole === 'admin') ? 'admin-dashboard.php' : 'index.php';
+// Role lives in platform_admins, not on users — look it up separately
+// rather than assuming every user has one.
+$roleStmt = $db->prepare('SELECT role FROM platform_admins WHERE user_id = ?');
+$roleStmt->execute([$user['id']]);
+$adminRole = $roleStmt->fetchColumn();
+
+$userRole = $adminRole ?: 'user';
+$redirect = $adminRole ? 'admin-dashboard.php' : 'index.php';
 
 st_json_ok([
-    'redirect' => $redirect, 
+    'redirect' => $redirect,
     'user' => [
-        'full_name' => $user['full_name'], 
+        'full_name' => $user['full_name'],
         'username'  => $user['username'],
-        'role'      => $userRole
-    ]
+        'role'      => $userRole,
+    ],
 ]);
