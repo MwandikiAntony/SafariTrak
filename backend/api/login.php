@@ -19,12 +19,16 @@ if ($identifier === '' || $password === '') {
 $db = safaritrak_db();
 
 // 1. Added `role` to the SELECT query
-$stmt = $db->prepare('SELECT id, full_name, username, password_hash, role FROM users WHERE username = ? OR email = ? OR phone = ?');
+$stmt = $db->prepare('SELECT id, full_name, username, password_hash, is_suspended, role FROM users WHERE username = ? OR email = ? OR phone = ?');
 $stmt->execute([$identifier, $identifier, preg_replace('/\D/', '', $identifier)]);
 $user = $stmt->fetch();
 
 if (!$user || !password_verify($password, $user['password_hash'])) {
     st_json_error('That username or password is not right.', 401);
+}
+
+if ((int) $user['is_suspended'] === 1) {
+    st_json_error('This account has been suspended. Contact SafariTrak support for help.', 403);
 }
 
 st_login_user($user, $remember);

@@ -5,6 +5,7 @@ CREATE TABLE users (
     email VARCHAR(160) NOT NULL UNIQUE,
     phone VARCHAR(20) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    is_suspended TINYINT(1) NOT NULL DEFAULT 0,
     home_address VARCHAR(255) NULL,
     avatar_path VARCHAR(255) NULL,
     show_history_to_contacts TINYINT(1) NOT NULL DEFAULT 0,
@@ -181,6 +182,7 @@ CREATE TABLE group_members (
 CREATE TABLE organizations (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(160) NOT NULL,
+    is_suspended TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
@@ -204,4 +206,13 @@ CREATE TABLE organization_travelers (
     FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     UNIQUE KEY uniq_org_traveler (organization_id, user_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE platform_admins (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    role ENUM('owner', 'staff') NOT NULL DEFAULT 'staff',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY uniq_platform_admin_user (user_id)
 ) ENGINE=InnoDB;

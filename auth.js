@@ -261,3 +261,11 @@ if (resetForm) {
     showError('confirmPasswordError', true, data.message || 'This reset link is invalid or has expired.');
   });
 }
+const params = new URLSearchParams(window.location.search);
+if (params.get('suspended') === '1') {
+  const subtitle = document.querySelector('.subtitle');
+  if (subtitle) {
+    subtitle.textContent = 'This account has been suspended. Contact SafariTrak support for help.';
+    subtitle.style.color = '#ffb3b3';
+  }
+}

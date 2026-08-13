@@ -1778,6 +1778,26 @@ footer {
     margin-top: 4px
 }
 
+.platform-badge {
+    display: inline-block;
+    background: #7c1d3f;
+    color: #fff;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    padding: 3px 7px;
+    border-radius: 20px;
+    margin-top: 4px
+}
+
+.platform-sidebar {
+    background: #17231f
+}
+
+.platform-sidebar .logo {
+    background: #7c1d3f
+}
+
 .stat-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

@@ -4,7 +4,7 @@ st_require_admin();
 
 require __DIR__ . '/backend/includes/org-guard.php';
 
-if ($myOrg) {
+if ($myOrg && !$myOrgSuspended) {
     $db = safaritrak_db();
     $orgId = $myOrg['id'];
 
@@ -116,7 +116,16 @@ function admin_relative_time(string $dt): string {
 
 <div class="content">
 
-<?php if (!$myOrg): ?>
+<?php if ($myOrg && $myOrgSuspended): ?>
+
+<div class="card" style="max-width:480px;margin:30px auto;border:1px solid #f3c8c8">
+  <div class="card-head"><div><label style="color:#c94b4b">SUSPENDED</label><h3>This organization has been suspended</h3></div></div>
+  <div style="padding:0 21px 21px">
+    <p style="font-size:12px;color:var(--muted);line-height:1.7">SafariTrak has suspended <?= htmlspecialchars($myOrg['name']) ?>. Your travelers cannot be managed while this is in effect. Contact SafariTrak support if you believe this is a mistake.</p>
+  </div>
+</div>
+
+<?php elseif (!$myOrg): ?>
 
 <div class="card" style="max-width:480px;margin:30px auto">
   <div class="card-head"><div><label>SET UP YOUR ORGANIZATION</label><h3>Create your organization</h3></div></div>
