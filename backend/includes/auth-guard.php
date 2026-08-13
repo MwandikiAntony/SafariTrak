@@ -1,33 +1,31 @@
 <?php
 
 require_once __DIR__ . '/session.php';
+require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/helpers.php';
 
-$safaritrakUserId = st_current_user_id();
-
-if ($safaritrakUserId === null) {
-    header('Location: login.html');
-    exit;
+if (empty($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit();
 }
 
-$stmt = safaritrak_db()->prepare('SELECT id, full_name, username, email, phone, avatar_path, is_suspended FROM users WHERE id = ?');
-$stmt->execute([$safaritrakUserId]);
+$db = safaritrak_db();
+
+$stmt = $db->prepare('SELECT * FROM users WHERE id = ?');
+$stmt->execute([$_SESSION['user_id']]);
 $currentUser = $stmt->fetch();
 
-if (!$currentUser) {
-    st_logout();
-    header('Location: login.html');
-    exit;
-}
-
-if ((int) $currentUser['is_suspended'] === 1) {
-    st_logout();
-    header('Location: login.html?suspended=1');
-    exit;
+if (!$currentUser || (int) $currentUser['is_suspended'] === 1) {
+    session_unset();
+    session_destroy();
+    header('Location: login.php');
+    exit();
 }
 
 $userName = $currentUser['full_name'];
 
-$unreadMsgStmt = safaritrak_db()->prepare('SELECT COUNT(DISTINCT sender_id) FROM messages WHERE receiver_id = ? AND read_at IS NULL');
-$unreadMsgStmt->execute([$safaritrakUserId]);
-$unreadConversationCount = (int) $unreadMsgStmt->fetchColumn();
+$unreadStmt = $db->prepare(
+    'SELECT COUNT(DISTINCT sender_id) AS c FROM messages WHERE receiver_id = ? AND read_at IS NULL'
+);
+$unreadStmt->execute([$currentUser['id']]);
+$unreadConversationCount = (int) ($unreadStmt->fetch()['c'] ?? 0);

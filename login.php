@@ -1,63 +1,56 @@
-<?php
-session_start();
-header('Content-Type: application/json');
-require_once 'db.php';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafariTrak | Login</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body>
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Read raw JSON input from JS postJSON()
-    $input = json_decode(file_get_contents('php://input'), true);
+  <div class="login-card">
+    <div class="brand-mark">
+      <i class="fa-solid fa-route"></i>
+      <span>SafariTrak</span>
+    </div>
+    <h1 class="title">Welcome back</h1>
+    <p class="subtitle">Log in to continue your journey</p>
 
-    $usernameOrEmail = trim($input['username'] ?? '');
-    $password        = trim($input['password'] ?? '');
+    <form class="login-form" id="loginForm" novalidate>
+      <div class="input-group">
+        <input type="text" id="loginUsername" placeholder="Username" required>
+        <i class="fa-regular fa-user input-icon"></i>
+      </div>
+      <p class="field-error" id="loginUsernameError">Enter your username</p>
 
-    if (empty($usernameOrEmail) || empty($password)) {
-        echo json_encode([
-            'success' => false, 
-            'message' => 'Please enter both username/email and password.'
-        ]);
-        exit;
-    }
+      <div class="input-group">
+        <input type="password" id="loginPassword" placeholder="Password" required>
+        <button type="button" class="input-icon" id="toggleLoginPassword" aria-label="Show password">
+          <i class="fa-regular fa-eye-slash"></i>
+        </button>
+      </div>
+      <p class="field-error" id="loginPasswordError">Enter your password</p>
 
-    $stmt = $conn->prepare("SELECT id, username, email, password_hash, role FROM users WHERE username = ? OR email = ?");
-    $stmt->bind_param("ss", $usernameOrEmail, $usernameOrEmail);
-    $stmt->execute();
-    $result = $stmt->get_result();
+      <div class="auth-row">
+        <div class="remember-me">
+          <input type="checkbox" id="remember" checked>
+          <label for="remember">Remember me</label>
+        </div>
+        <a class="forgot-link" href="forgot-password.php">Forgot password?</a>
+      </div>
 
-    if ($user = $result->fetch_assoc()) {
-        if (password_verify($password, $user['password_hash'])) {
-            $userRole = strtolower(trim($user['role'] ?? 'user'));
+      <button type="submit" class="login-btn">Login</button>
+    </form>
 
-            $_SESSION['user_id']  = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['role']     = $userRole;
+    <p class="signup-text">
+      Don't have an account? <a href="signup.php">Sign up</a>
+    </p>
+    <p class="signup-text">
+      Managing an organization? <a href="org-signup.php">Register it here</a>
+    </p>
+  </div>
 
-            // Root-relative pathing prevents 404s when called from /backend/api/
-            $redirectUrl = ($userRole === 'admin') ? '/SafariTrak/admin-dashboard.php' : '/SafariTrak/index.php';
-
-            echo json_encode([
-                'success'  => true,
-                'redirect' => $redirectUrl,
-                'role'     => $userRole
-            ]);
-        } else {
-            echo json_encode([
-                'success' => false, 
-                'message' => 'Invalid password.'
-            ]);
-        }
-    } else {
-        echo json_encode([
-            'success' => false, 
-            'message' => 'User not found.'
-        ]);
-    }
-
-    $stmt->close();
-    $conn->close();
-} else {
-    echo json_encode([
-        'success' => false, 
-        'message' => 'Invalid request method.'
-    ]);
-}
-?>
+  <script src="auth.js"></script>
+</body>
+</html>

@@ -62,10 +62,10 @@
     </form>
 
     <p class="signup-text">
-      Already have an account? <a href="login.html">Login</a>
+      Already have an account? <a href="login.php">Login</a>
     </p>
     <p class="signup-text">
-      Signing up for a business or Sacco? <a href="org-signup.html">Register your organization</a>
+      Signing up for a business or Sacco? <a href="org-signup.php">Register your organization</a>
     </p>
   </div>
 

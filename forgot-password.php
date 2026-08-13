@@ -28,7 +28,7 @@
     </form>
 
     <p class="signup-text">
-      Remembered your password? <a href="login.html">Back to login</a>
+      Remembered your password? <a href="login.php">Back to login</a>
     </p>
   </div>
 

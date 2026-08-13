@@ -1,20 +1,22 @@
 <?php
 
-function st_avatar_inner(array $user): string {
-    if (!empty($user['avatar_path'])) {
-        return '<img src="' . htmlspecialchars($user['avatar_path']) . '" class="avatar-img" alt="">';
+function st_initials(string $name): string {
+    $parts = array_filter(preg_split('/\s+/', trim($name)));
+    if (empty($parts)) {
+        return '?';
     }
-    $initial = strtoupper(substr($user['full_name'] ?? 'T', 0, 1));
-    return htmlspecialchars($initial);
+    $parts = array_values($parts);
+    $first = mb_substr($parts[0], 0, 1);
+    $last = count($parts) > 1 ? mb_substr(end($parts), 0, 1) : '';
+    return mb_strtoupper($first . $last);
 }
 
-function st_initials(string $name): string {
-    $parts = preg_split('/\s+/', trim($name));
-    $letters = '';
-    foreach (array_slice($parts, 0, 2) as $p) {
-        $letters .= strtoupper(substr($p, 0, 1));
+function st_avatar_inner(array $user): string {
+    if (!empty($user['avatar_path'])) {
+        $src = htmlspecialchars($user['avatar_path']) . '?v=' . time();
+        return '<img src="' . $src . '" class="avatar-img" alt="">';
     }
-    return $letters ?: '?';
+    return htmlspecialchars(st_initials($user['full_name'] ?? ''));
 }
 
 function st_notif_icon(string $type): string {
@@ -74,4 +76,48 @@ function st_greeting(): string {
         return 'Good afternoon';
     }
     return 'Good evening';
+}
+
+/* ---------------- Phone helpers (used by settings) ---------------- */
+
+function st_clean_phone(string $phone): string {
+    return preg_replace('/\D/', '', $phone) ?? '';
+}
+
+/**
+ * Accepts local (07xxxxxxxx / 01xxxxxxxx) or international (2547xxxxxxxx /
+ * 2541xxxxxxxx) Kenyan mobile formats.
+ */
+function st_valid_kenyan_phone(string $digits): bool {
+    if (preg_match('/^(07|01)\d{8}$/', $digits)) {
+        return true;
+    }
+    if (preg_match('/^254(7|1)\d{8}$/', $digits)) {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Normalizes any accepted format to 2547xxxxxxxx / 2541xxxxxxxx for storage.
+ */
+function st_normalize_phone(string $digits): string {
+    if (preg_match('/^(07|01)\d{8}$/', $digits)) {
+        return '254' . substr($digits, 1);
+    }
+    return $digits;
+}
+
+/**
+ * 2547XXXXXXXX -> 07XX XXX XXX for display in form fields.
+ */
+function st_display_phone(?string $digits): string {
+    if (!$digits) {
+        return '';
+    }
+    if (preg_match('/^254(\d{9})$/', $digits, $m)) {
+        $local = '0' . $m[1];
+        return substr($local, 0, 4) . ' ' . substr($local, 4, 3) . ' ' . substr($local, 7);
+    }
+    return $digits;
 }

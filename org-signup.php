@@ -66,10 +66,10 @@
     </form>
 
     <p class="signup-text">
-      Just want a personal account? <a href="signup.html">Sign up as a traveler</a>
+      Just want a personal account? <a href="signup.php">Sign up as a traveler</a>
     </p>
     <p class="signup-text">
-      Already have an account? <a href="login.html">Login</a>
+      Already have an account? <a href="login.php">Login</a>
     </p>
   </div>
 

@@ -38,7 +38,7 @@
     </form>
 
     <p class="signup-text">
-      Changed your mind? <a href="login.html">Back to login</a>
+      Changed your mind? <a href="login.php">Back to login</a>
     </p>
   </div>
 
