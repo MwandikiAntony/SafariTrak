@@ -4,6 +4,7 @@ require_once __DIR__ . '/backend/includes/session.php';
 require_once __DIR__ . '/backend/includes/response.php';
 require_once __DIR__ . '/backend/config/database.php';
 
+st_start_session();
 st_require_method('POST');
 
 if (empty($_SESSION['user_id'])) {
@@ -30,9 +31,6 @@ if (!$user || !password_verify($password, $user['password_hash'])) {
     st_json_error('Incorrect password.', 422, ['errors' => ['password' => 'Incorrect password.']]);
 }
 
-// FK constraints on journeys, trusted_contacts, messages, notifications, sos_alerts,
-// sessions, group_members, organization_admins, organization_travelers, platform_admins
-// are all ON DELETE CASCADE / SET NULL, so this single delete is enough.
 $deleteStmt = $db->prepare('DELETE FROM users WHERE id = ?');
 $deleteStmt->execute([$userId]);
 

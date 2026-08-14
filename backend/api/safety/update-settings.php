@@ -4,13 +4,13 @@ require_once __DIR__ . '/../../includes/session.php';
 require_once __DIR__ . '/../../includes/response.php';
 require_once __DIR__ . '/../../config/database.php';
 
+st_start_session();
 st_require_method('POST');
 
 if (empty($_SESSION['user_id'])) {
     st_json_error('Unauthorized access.', 401);
 }
 
-// Allowlist: only these boolean columns can be flipped from this endpoint.
 $allowedFields = [
     'route_deviation_alerts',
     'arrival_notifications',
@@ -36,7 +36,6 @@ if (!is_bool($value) && $value !== 0 && $value !== 1 && $value !== '0' && $value
 $boolValue = filter_var($value, FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
 
 $db = safaritrak_db();
-// $field is safe: it only ever comes from the allowlist above, never from raw input.
 $updateStmt = $db->prepare("UPDATE users SET {$field} = ? WHERE id = ?");
 $updateStmt->execute([$boolValue, $userId]);
 

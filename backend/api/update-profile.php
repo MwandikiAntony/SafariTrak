@@ -4,7 +4,7 @@ require_once __DIR__ . '/../includes/session.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../config/database.php';
-
+st_start_session();
 st_require_method('POST');
 
 if (empty($_SESSION['user_id'])) {
