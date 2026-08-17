@@ -1,32 +1,303 @@
-const map = L.map('map').setView([-1.286389, 36.817223], 12);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '© OpenStreetMap contributors'
-}).addTo(map);
+document.addEventListener('DOMContentLoaded', function () {
 
-const icon = L.divIcon({
-  className: 'st-marker',
-  html: '<div style="width:18px;height:18px;background:#176b5b;border:4px solid white;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,.25)"></div>',
-  iconSize: [18, 18],
-  iconAnchor: [9, 9]
-});
+    const mapElement = document.getElementById('map');
 
-const marker = L.marker([-1.286389, 36.817223], { icon }).addTo(map).bindPopup('<b>Your current location</b><br>Nairobi, Kenya');
+    if (!mapElement) {
+        return;
+    }
 
-function locate() {
-  if (!navigator.geolocation) return alert('Location is not supported by this browser.');
-  navigator.geolocation.getCurrentPosition(p => {
-    const x = [p.coords.latitude, p.coords.longitude];
-    marker.setLatLng(x);
-    map.setView(x, 15);
-    marker.openPopup();
-  }, () => alert('Please allow SafariTrak to access your location.'), { enableHighAccuracy: true, timeout: 10000 });
-}
+    let initialLat = -1.286389;
+    let initialLng = 36.817223;
 
-document.getElementById('locate')?.addEventListener('click', locate);
-document.getElementById('myLocation')?.addEventListener('click', locate);
-document.getElementById('destination')?.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && e.target.value.trim()) {
-    alert('Destination selected: ' + e.target.value.trim() + '\nRouting will be connected next.');
-  }
+    if (
+        window.SAFARITRAK_JOURNEY &&
+        window.SAFARITRAK_JOURNEY.start_lat &&
+        window.SAFARITRAK_JOURNEY.start_lng
+    ) {
+        initialLat =
+            parseFloat(window.SAFARITRAK_JOURNEY.start_lat);
+
+        initialLng =
+            parseFloat(window.SAFARITRAK_JOURNEY.start_lng);
+    }
+
+    window.safariMap =
+        L.map('map', {
+            zoomControl: false,
+            attributionControl: true
+        }).setView(
+            [initialLat, initialLng],
+            14
+        );
+
+    L.tileLayer(
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {
+            maxZoom: 19,
+            attribution:
+                '&copy; OpenStreetMap contributors'
+        }
+    ).addTo(window.safariMap);
+
+    L.control.zoom({
+        position: 'topright'
+    }).addTo(window.safariMap);
+
+    window.startMarker = null;
+    window.currentMarker = null;
+    window.destinationMarker = null;
+    window.routeLine = null;
+
+    const currentIcon =
+        L.divIcon({
+            className: 'safaritrak-current-icon',
+            html:
+                '<div style="' +
+                'width:20px;' +
+                'height:20px;' +
+                'border-radius:50%;' +
+                'background:#10b981;' +
+                'border:4px solid white;' +
+                'box-shadow:0 2px 8px rgba(0,0,0,.35);' +
+                '"></div>',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
+
+    const startIcon =
+        L.divIcon({
+            className: 'safaritrak-start-icon',
+            html:
+                '<div style="' +
+                'width:30px;' +
+                'height:30px;' +
+                'border-radius:50%;' +
+                'background:#147968;' +
+                'color:white;' +
+                'display:flex;' +
+                'align-items:center;' +
+                'justify-content:center;' +
+                'font-size:14px;' +
+                'box-shadow:0 2px 8px rgba(0,0,0,.3);' +
+                '">' +
+                '<i class="fas fa-play"></i>' +
+                '</div>',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        });
+
+    const destinationIcon =
+        L.divIcon({
+            className: 'safaritrak-destination-icon',
+            html:
+                '<div style="' +
+                'width:32px;' +
+                'height:32px;' +
+                'border-radius:50%;' +
+                'background:#e5a82c;' +
+                'color:white;' +
+                'display:flex;' +
+                'align-items:center;' +
+                'justify-content:center;' +
+                'font-size:15px;' +
+                'box-shadow:0 2px 8px rgba(0,0,0,.3);' +
+                '">' +
+                '<i class="fas fa-flag-checkered"></i>' +
+                '</div>',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+        });
+
+    window.SafariMapIcons = {
+        current: currentIcon,
+        start: startIcon,
+        destination: destinationIcon
+    };
+
+    window.setStartMarker =
+        function (lat, lng, label) {
+
+            if (window.startMarker) {
+                window.startMarker.remove();
+            }
+
+            window.startMarker =
+                L.marker(
+                    [lat, lng],
+                    {
+                        icon: startIcon
+                    }
+                )
+                .addTo(window.safariMap)
+                .bindPopup(
+                    '<strong>Starting point</strong><br>' +
+                    (label || 'Journey start')
+                );
+        };
+
+    window.setCurrentMarker =
+        function (lat, lng, accuracy) {
+
+            if (!window.currentMarker) {
+
+                window.currentMarker =
+                    L.marker(
+                        [lat, lng],
+                        {
+                            icon: currentIcon
+                        }
+                    ).addTo(window.safariMap);
+
+            } else {
+
+                window.currentMarker.setLatLng(
+                    [lat, lng]
+                );
+            }
+
+            window.currentMarker.bindPopup(
+                '<strong>Current location</strong><br>' +
+                'Accuracy: approximately ' +
+                Math.round(accuracy || 0) +
+                ' metres'
+            );
+        };
+
+    window.setDestinationMarker =
+        function (lat, lng, label) {
+
+            if (window.destinationMarker) {
+                window.destinationMarker.remove();
+            }
+
+            window.destinationMarker =
+                L.marker(
+                    [lat, lng],
+                    {
+                        icon: destinationIcon
+                    }
+                )
+                .addTo(window.safariMap)
+                .bindPopup(
+                    '<strong>Destination</strong><br>' +
+                    (label || 'Destination')
+                );
+        };
+
+    window.drawRoute =
+        function (coordinates) {
+
+            if (
+                !coordinates ||
+                !coordinates.length
+            ) {
+                return;
+            }
+
+            if (window.routeLine) {
+                window.routeLine.remove();
+            }
+
+            window.routeLine =
+                L.polyline(
+                    coordinates,
+                    {
+                        color: '#147968',
+                        weight: 5,
+                        opacity: 0.8
+                    }
+                ).addTo(window.safariMap);
+        };
+
+    window.fitJourney =
+        function () {
+
+            const layers = [];
+
+            if (window.startMarker) {
+                layers.push(
+                    window.startMarker
+                );
+            }
+
+            if (window.currentMarker) {
+                layers.push(
+                    window.currentMarker
+                );
+            }
+
+            if (window.destinationMarker) {
+                layers.push(
+                    window.destinationMarker
+                );
+            }
+
+            if (window.routeLine) {
+                layers.push(
+                    window.routeLine
+                );
+            }
+
+            if (!layers.length) {
+                return;
+            }
+
+            const group =
+                L.featureGroup(layers);
+
+            window.safariMap.fitBounds(
+                group.getBounds().pad(0.15)
+            );
+        };
+
+    if (window.SAFARITRAK_JOURNEY) {
+
+        const journey =
+            window.SAFARITRAK_JOURNEY;
+
+        if (
+            journey.start_lat &&
+            journey.start_lng
+        ) {
+
+            window.setStartMarker(
+                parseFloat(journey.start_lat),
+                parseFloat(journey.start_lng),
+                journey.start_label
+            );
+        }
+
+        if (
+            journey.end_lat &&
+            journey.end_lng
+        ) {
+
+            window.setDestinationMarker(
+                parseFloat(journey.end_lat),
+                parseFloat(journey.end_lng),
+                journey.end_label
+            );
+        }
+
+        if (
+            journey.current_lat &&
+            journey.current_lng
+        ) {
+
+            window.setCurrentMarker(
+                parseFloat(journey.current_lat),
+                parseFloat(journey.current_lng),
+                0
+            );
+        }
+
+        setTimeout(function () {
+
+            window.safariMap.invalidateSize();
+
+            window.fitJourney();
+
+        }, 300);
+    }
+
 });

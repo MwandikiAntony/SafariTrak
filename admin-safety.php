@@ -52,7 +52,7 @@ $resolvedAlerts = $resolvedStmt->fetchAll();
   <div class="bottom">
     <a href="index.php"><i class="fa-solid fa-arrow-right-arrow-left"></i>Switch to traveler view</a>
     <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span>S</span><div><b><?= htmlspecialchars($userName) ?></b><small>SafariTrak <?= htmlspecialchars(ucfirst($myPlatformRole['role'])) ?></small></div></div>
+    <div class="account"><span>S</span><div><b><?= htmlspecialchars($username) ?></b><small>SafariTrak <?= htmlspecialchars(ucfirst($myPlatformRole['role'])) ?></small></div></div>
   </div>
 </aside>
 
