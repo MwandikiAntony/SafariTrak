@@ -18,7 +18,7 @@ if ($identifier === '' || $password === '') {
 
 $db = safaritrak_db();
 
-$stmt = $db->prepare('SELECT id, full_name, username, password_hash, is_suspended FROM users WHERE username = ? OR email = ? OR phone = ?');
+$stmt = $db->prepare('SELECT id, full_name, username, email, password_hash, is_suspended, email_verified_at FROM users WHERE username = ? OR email = ? OR phone = ?');
 $stmt->execute([$identifier, $identifier, preg_replace('/\D/', '', $identifier)]);
 $user = $stmt->fetch();
 
@@ -28,6 +28,14 @@ if (!$user || !password_verify($password, $user['password_hash'])) {
 
 if ((int) $user['is_suspended'] === 1) {
     st_json_error('This account has been suspended. Contact SafariTrak support for help.', 403);
+}
+
+if (!$user['email_verified_at']) {
+    st_json_error(
+        'Please verify your email before logging in. Check your inbox for the verification link, or request a new one.',
+        403,
+        ['unverified' => true, 'email' => $user['email']]
+    );
 }
 
 st_login_user($user, $remember);

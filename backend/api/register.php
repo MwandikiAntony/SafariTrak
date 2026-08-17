@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/session.php';
+require_once __DIR__ . '/../includes/mailer.php';
 
 st_require_method('POST');
 
@@ -76,10 +77,31 @@ $linkStmt = $db->prepare(
 );
 $linkStmt->execute([$userId, $phoneDigits]);
 
-$userStmt = $db->prepare('SELECT id, full_name, username FROM users WHERE id = ?');
+// Every account now needs a verified email before it can log in, so we do
+// NOT call st_login_user() here. Instead: generate a token, mirroring the
+// password_resets pattern, and mail the link.
+$token = bin2hex(random_bytes(32));
+$tokenHash = hash('sha256', $token);
+$expiresAt = date('Y-m-d H:i:s', time() + (24 * 60 * 60));
+
+$verifyStmt = $db->prepare(
+    'INSERT INTO email_verifications (user_id, token_hash, expires_at) VALUES (?, ?, ?)'
+);
+$verifyStmt->execute([$userId, $tokenHash, $expiresAt]);
+
+$userStmt = $db->prepare('SELECT id, full_name, username, email FROM users WHERE id = ?');
 $userStmt->execute([$userId]);
 $user = $userStmt->fetch();
 
-st_login_user($user, false);
+st_send_verification_email($user, $token);
 
-st_json_ok(['redirect' => 'index.php']);
+$response = [
+    'need_verification' => true,
+    'message' => 'Almost there — we sent a verification link to ' . $email . '. Check your inbox to activate your account.',
+];
+
+if (getenv('SAFARITRAK_DEV_MODE') === '1') {
+    $response['dev_verification_link'] = 'verify-email.php?token=' . $token;
+}
+
+st_json_ok($response);
