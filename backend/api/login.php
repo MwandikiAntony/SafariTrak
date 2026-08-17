@@ -40,14 +40,30 @@ if (!$user['email_verified_at']) {
 
 st_login_user($user, $remember);
 
-// Role lives in platform_admins, not on users — look it up separately
-// rather than assuming every user has one.
-$roleStmt = $db->prepare('SELECT role FROM platform_admins WHERE user_id = ?');
-$roleStmt->execute([$user['id']]);
-$adminRole = $roleStmt->fetchColumn();
+// Role priority matches login.php's fallback path and auth-guard.php:
+// platform_admin > org_admin > traveler.
+$paStmt = $db->prepare('SELECT id FROM platform_admins WHERE user_id = ? LIMIT 1');
+$paStmt->execute([$user['id']]);
+$isPlatformAdmin = (bool) $paStmt->fetch();
 
-$userRole = $adminRole ?: 'user';
-$redirect = $adminRole ? 'admin-dashboard.php' : 'index.php';
+$oaStmt = $db->prepare('SELECT organization_id FROM organization_admins WHERE user_id = ? LIMIT 1');
+$oaStmt->execute([$user['id']]);
+$orgAdminData = $oaStmt->fetch();
+
+if ($isPlatformAdmin) {
+    $_SESSION['role'] = 'platform_admin';
+    $userRole = 'platform_admin';
+    $redirect = 'admin-dashboard.php';
+} elseif ($orgAdminData) {
+    $_SESSION['role'] = 'org_admin';
+    $_SESSION['organization_id'] = (int) $orgAdminData['organization_id'];
+    $userRole = 'org_admin';
+    $redirect = 'org-dashboard.php';
+} else {
+    $_SESSION['role'] = 'user';
+    $userRole = 'user';
+    $redirect = 'index.php';
+}
 
 st_json_ok([
     'redirect' => $redirect,

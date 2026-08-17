@@ -9,7 +9,7 @@ $db = safaritrak_db();
 
 // If user is already logged in, determine their dynamic role from the DB tables and redirect
 if (!empty($_SESSION['user_id'])) {
-    
+
     $paStmt = $db->prepare('SELECT id FROM platform_admins WHERE user_id = ? LIMIT 1');
     $paStmt->execute([$_SESSION['user_id']]);
     if ($paStmt->fetch()) {
@@ -50,6 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user && password_verify($passwordInput, $user['password_hash'])) {
             if ((int) ($user['is_suspended'] ?? 0) === 1) {
                 $error = 'Your account has been suspended. Please contact support.';
+            } elseif (empty($user['email_verified_at'])) {
+                $error = 'Please verify your email before logging in. Check your inbox for the verification link, or sign up again to request a new one.';
             } else {
                 $_SESSION['user_id'] = (int) $user['id'];
 
