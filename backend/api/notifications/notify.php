@@ -1,11 +1,12 @@
 <?php
+
 function st_notify(
     int $userId,
     string $type,
     string $title,
-    string $body,
-    ?int $relatedJourneyId = null,
-    ?int $relatedUserId = null
+    string $message,
+    ?int $referenceId = null,
+    ?int $senderUserId = null
 ): bool {
 
     $db = safaritrak_db();
@@ -16,9 +17,9 @@ function st_notify(
             user_id,
             type,
             title,
-            body,
-            related_journey_id,
-            related_user_id,
+            message,
+            reference_id,
+            sender_user_id,
             is_read,
             created_at
         )
@@ -29,8 +30,8 @@ function st_notify(
         $userId,
         $type,
         $title,
-        $body,
-        $relatedJourneyId,
-        $relatedUserId,
+        $message,
+        $referenceId,
+        $senderUserId
     ]);
 }

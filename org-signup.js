@@ -71,6 +71,10 @@ if (orgSignupForm) {
     setSubmitting(submitBtn, false, 'Create organization account');
 
     if (ok && data.success) {
+      if (data.need_verification) {
+        showNeedsVerification(orgSignupForm, data);
+        return;
+      }
       window.location.href = data.redirect || 'org-dashboard.php';
       return;
     }

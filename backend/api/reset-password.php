@@ -45,4 +45,4 @@ $invalidateSessionsStmt->execute([$reset['user_id']]);
 
 $db->commit();
 
-st_json_ok(['redirect' => 'login.html']);
+st_json_ok(['redirect' => 'login.php']);

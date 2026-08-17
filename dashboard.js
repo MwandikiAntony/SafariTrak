@@ -56,3 +56,32 @@ document.addEventListener('click', (e) => {
     }
   });
 });
+document.addEventListener('DOMContentLoaded', () => {
+  const profileAvatarBtn = document.getElementById('profileAvatarBtn');
+  const profileDropdownMenu = document.getElementById('profileDropdownMenu');
+  const profileDropdownWrap = document.getElementById('profileDropdownWrap');
+
+  if (profileAvatarBtn && profileDropdownMenu) {
+    profileAvatarBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isExpanded = profileDropdownMenu.classList.toggle('show');
+      profileAvatarBtn.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (profileDropdownWrap && !profileDropdownWrap.contains(e.target)) {
+        if (profileDropdownMenu.classList.contains('show')) {
+          profileDropdownMenu.classList.remove('show');
+          profileAvatarBtn.setAttribute('aria-expanded', 'false');
+        }
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && profileDropdownMenu.classList.contains('show')) {
+        profileDropdownMenu.classList.remove('show');
+        profileAvatarBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+});

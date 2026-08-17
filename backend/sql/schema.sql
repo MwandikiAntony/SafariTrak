@@ -3,6 +3,7 @@ CREATE TABLE users (
     full_name VARCHAR(120) NOT NULL,
     username VARCHAR(40) NOT NULL UNIQUE,
     email VARCHAR(160) NOT NULL UNIQUE,
+    email_verified_at DATETIME NULL,
     phone VARCHAR(20) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     is_suspended TINYINT(1) NOT NULL DEFAULT 0,
@@ -16,6 +17,17 @@ CREATE TABLE users (
     auto_sos_on_silence TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE email_verifications (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    token_hash VARCHAR(255) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_email_verifications_user (user_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE password_resets (
@@ -120,7 +132,7 @@ CREATE TABLE messages (
 CREATE TABLE notifications (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL,
-    type ENUM('journey_started', 'journey_completed', 'arrival', 'route_deviation', 'new_message', 'location_share', 'sos_alert', 'contact_request', 'group_invite') NOT NULL,
+    type ENUM('journey_started', 'journey_completed', 'arrival', 'route_deviation', 'new_message', 'location_share', 'sos_alert', 'contact_request', 'group_invite', 'welcome') NOT NULL,
     title VARCHAR(160) NOT NULL,
     body VARCHAR(500) NULL,
     related_journey_id INT UNSIGNED NULL,

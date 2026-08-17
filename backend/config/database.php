@@ -1,5 +1,10 @@
 <?php
 
+$envFile = __DIR__ . '/env.php';
+if (file_exists($envFile)) {
+    require_once $envFile;
+}
+
 function safaritrak_db(): PDO {
     static $pdo = null;
 

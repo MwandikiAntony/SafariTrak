@@ -43,6 +43,23 @@ async function postJSON(url, payload) {
   return { ok: response.ok, status: response.status, data };
 }
 
+// Shared by signup/org-signup success: hides the form, reuses the .subtitle
+// element (same trick forgotForm already uses), and shows the dev link
+// when SAFARITRAK_DEV_MODE is on.
+function showNeedsVerification(form, data) {
+  form.style.display = 'none';
+  const subtitle = document.querySelector('.subtitle');
+  if (subtitle) {
+    subtitle.textContent = data.message || 'Check your email to verify your account.';
+  }
+  if (data.dev_verification_link) {
+    const devNote = document.createElement('p');
+    devNote.className = 'signup-text';
+    devNote.innerHTML = 'Dev mode: <a href="' + data.dev_verification_link + '">open your verification link</a>';
+    form.insertAdjacentElement('afterend', devNote);
+  }
+}
+
 togglePassword('toggleLoginPassword', 'loginPassword');
 togglePassword('toggleSignupPassword', 'signupPassword');
 togglePassword('toggleNewPassword', 'newPassword');
@@ -51,6 +68,30 @@ togglePassword('toggleConfirmPassword', 'confirmPassword');
 const loginForm = document.getElementById('loginForm');
 if (loginForm) {
   const submitBtn = loginForm.querySelector('.login-btn');
+
+  function showResendVerification(email) {
+    if (document.getElementById('resendVerificationBtn')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'resendVerificationBtn';
+    btn.className = 'btn-ghost';
+    btn.style.marginTop = '10px';
+    btn.style.width = '100%';
+    btn.textContent = 'Resend verification email';
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+      const { data } = await postJSON('backend/api/resend-verification.php', { email });
+      btn.textContent = data.message || 'Check your inbox for a new link.';
+      if (data.dev_verification_link) {
+        const devNote = document.createElement('p');
+        devNote.className = 'signup-text';
+        devNote.innerHTML = 'Dev mode: <a href="' + data.dev_verification_link + '">open your verification link</a>';
+        btn.insertAdjacentElement('afterend', devNote);
+      }
+    });
+    loginForm.insertAdjacentElement('afterend', btn);
+  }
 
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -76,11 +117,21 @@ if (loginForm) {
     if (!valid) return;
 
     setSubmitting(submitBtn, true, 'Login');
-    const { ok, data } = await postJSON('backend/api/login.php', {
-      username: username.value.trim(),
-      password: password.value,
-      remember: remember ? remember.checked : false
-    });
+
+    let ok = false;
+    let data = {};
+    try {
+      ({ ok, data } = await postJSON('backend/api/login.php', {
+        username: username.value.trim(),
+        password: password.value,
+        remember: remember ? remember.checked : false
+      }));
+    } catch (err) {
+      setSubmitting(submitBtn, false, 'Login');
+      showError('loginPasswordError', true, 'Could not reach the server. Please check your connection and try again.');
+      return;
+    }
+
     setSubmitting(submitBtn, false, 'Login');
 
     if (ok && data.success) {
@@ -89,6 +140,10 @@ if (loginForm) {
     }
 
     showError('loginPasswordError', true, data.message || 'That username or password is not right.');
+
+    if (data.unverified && data.email) {
+      showResendVerification(data.email);
+    }
   });
 }
 
@@ -156,6 +211,10 @@ if (signupForm) {
     setSubmitting(submitBtn, false, 'Create Account');
 
     if (ok && data.success) {
+      if (data.need_verification) {
+        showNeedsVerification(signupForm, data);
+        return;
+      }
       window.location.href = data.redirect || 'index.php';
       return;
     }
@@ -261,6 +320,7 @@ if (resetForm) {
     showError('confirmPasswordError', true, data.message || 'This reset link is invalid or has expired.');
   });
 }
+
 const params = new URLSearchParams(window.location.search);
 if (params.get('suspended') === '1') {
   const subtitle = document.querySelector('.subtitle');

@@ -1,9 +1,24 @@
 <?php
-require __DIR__ . '/backend/includes/platform-guard.php';
+
+require_once __DIR__ . '/backend/includes/auth-guard.php';
+
+st_require_platform_admin($currentUser);
+
+$myPlatformRole = null;
+$platformAdminExists = true;
+
+$paStmt = $db->prepare('SELECT role FROM platform_admins WHERE user_id = ? LIMIT 1');
+$paStmt->execute([$currentUser['id']]);
+$paData = $paStmt->fetch();
+
+if ($paData) {
+    $myPlatformRole = $paData;
+} else {
+    $countStmt = $db->query('SELECT COUNT(*) FROM platform_admins');
+    $platformAdminExists = ((int) $countStmt->fetchColumn()) > 0;
+}
 
 if ($myPlatformRole) {
-    $db = safaritrak_db();
-
     $totalUsersStmt = $db->query('SELECT COUNT(*) FROM users');
     $totalUsers = (int) $totalUsersStmt->fetchColumn();
 
@@ -59,7 +74,7 @@ if ($myPlatformRole) {
     <a href="admin-users.php"><i class="fa-solid fa-users"></i>Users</a>
     <a href="admin-organizations.php"><i class="fa-solid fa-building"></i>Organizations</a>
     <a href="admin-safety.php"><i class="fa-solid fa-triangle-exclamation"></i>Safety<?= !empty($activeSosAlerts) ? ' <em>' . count($activeSosAlerts) . '</em>' : '' ?></a>
-    <?php if ($myPlatformRole['role'] === 'owner'): ?>
+    <?php if (($myPlatformRole['role'] ?? '') === 'owner'): ?>
     <a href="admin-admins.php"><i class="fa-solid fa-user-shield"></i>Admins</a>
     <?php endif; ?>
     <?php endif; ?>
@@ -67,7 +82,7 @@ if ($myPlatformRole) {
   <div class="bottom">
     <a href="index.php"><i class="fa-solid fa-arrow-right-arrow-left"></i>Switch to traveler view</a>
     <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span>S</span><div><b><?= htmlspecialchars($userName) ?></b><small>SafariTrak <?= $myPlatformRole ? htmlspecialchars(ucfirst($myPlatformRole['role'])) : '' ?></small></div></div>
+    <div class="account"><span><?= htmlspecialchars(st_initials($userName)) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>SafariTrak <?= $myPlatformRole ? htmlspecialchars(ucfirst($myPlatformRole['role'])) : '' ?></small></div></div>
   </div>
 </aside>
 
@@ -75,7 +90,7 @@ if ($myPlatformRole) {
 <header>
   <button class="menu" id="menu"><i class="fa-solid fa-bars"></i></button>
   <div><label>PLATFORM OVERVIEW</label><h1>SafariTrak Admin</h1></div>
-  <div class="head-actions"><button><i class="fa-regular fa-bell"></i></button><div class="avatar">S</div></div>
+  <div class="head-actions"><button><i class="fa-regular fa-bell"></i></button><div class="avatar"><?= st_avatar_inner($currentUser) ?></div></div>
 </header>
 
 <div class="content">

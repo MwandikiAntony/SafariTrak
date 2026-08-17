@@ -65,7 +65,7 @@ body {
 .subtitle {
   font-size: 0.88rem;
   font-weight: 300;
-  color: black;
+  color: #ffffff;
   margin-bottom: 24px;
   text-align: center;
 }
@@ -82,31 +82,35 @@ body {
   align-items: center;
 }
 
+/* Updated input background & text color for strong visibility */
 .input-group input {
   width: 100%;
   padding: 13px 45px 13px 20px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 16px;
   outline: none;
   font-size: 0.95rem;
-  color: #ffffff;
+  font-weight: 500;
+  color: #111827; /* Dark black/charcoal text when typing */
   transition: all 0.25s ease;
 }
 
 .input-group input::placeholder {
-  color: black;
+  color: #4b5563; /* Readable dark-gray placeholders */
+  opacity: 1;
 }
 
 .input-group input:focus {
-  border-color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.15);
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25);
 }
 
 .input-icon {
   position: absolute;
   right: 18px;
-  color: black;
+  color: #374151; /* Dark icon contrast over light inputs */
   font-size: 1.1rem;
   background: none;
   border: none;
@@ -224,11 +228,11 @@ body {
   text-align: center;
   margin-top: 20px;
   font-size: 0.88rem;
-  color: rgba(255, 255, 255, 0.9);
+  color: #ffffff;
 }
 
 .signup-text a {
-  color: #10b981;
+  color: #a3e635;
   font-weight: 600;
   text-decoration: none;
 }

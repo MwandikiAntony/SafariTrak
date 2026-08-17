@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/response.php';
 require_once __DIR__ . '/../../includes/session.php';
+require_once __DIR__ . '/../../includes/mailer.php';
 
 st_start_session();
 st_require_method('POST');
@@ -80,16 +81,36 @@ try {
     $linkStmt = $db->prepare('UPDATE trusted_contacts SET contact_user_id = ? WHERE invite_phone = ? AND contact_user_id IS NULL');
     $linkStmt->execute([$userId, $phone]);
 
+    // Same as personal signup: create the org, but hold off on login()
+    // until the email is verified.
+    $token = bin2hex(random_bytes(32));
+    $tokenHash = hash('sha256', $token);
+    $expiresAt = date('Y-m-d H:i:s', time() + (24 * 60 * 60));
+
+    $verifyStmt = $db->prepare(
+        'INSERT INTO email_verifications (user_id, token_hash, expires_at) VALUES (?, ?, ?)'
+    );
+    $verifyStmt->execute([$userId, $tokenHash, $expiresAt]);
+
     $db->commit();
 } catch (Exception $e) {
     $db->rollBack();
     st_json_error('That organization could not be created. Please try again.', 500);
 }
 
-$userStmt = $db->prepare('SELECT id, full_name, username FROM users WHERE id = ?');
+$userStmt = $db->prepare('SELECT id, full_name, username, email FROM users WHERE id = ?');
 $userStmt->execute([$userId]);
 $user = $userStmt->fetch();
 
-st_login_user($user, false);
+st_send_verification_email($user, $token);
 
-st_json_ok(['redirect' => 'org-dashboard.php']);
+$response = [
+    'need_verification' => true,
+    'message' => 'Almost there — we sent a verification link to ' . $email . '. Verify it to start managing ' . $orgName . '.',
+];
+
+if (getenv('SAFARITRAK_DEV_MODE') === '1') {
+    $response['dev_verification_link'] = 'verify-email.php?token=' . $token;
+}
+
+st_json_ok($response);

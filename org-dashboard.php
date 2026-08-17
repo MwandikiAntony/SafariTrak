@@ -1,12 +1,24 @@
 <?php
-require __DIR__ . '/backend/includes/session.php';
-st_require_admin();
 
-require __DIR__ . '/backend/includes/org-guard.php';
+require_once __DIR__ . '/backend/includes/auth-guard.php';
+
+st_require_org_admin($currentUser);
+
+$myOrg = null;
+$myOrgSuspended = false;
+
+if (!empty($currentUser['organization_id'])) {
+    $orgStmt = $db->prepare('SELECT * FROM organizations WHERE id = ? LIMIT 1');
+    $orgStmt->execute([$currentUser['organization_id']]);
+    $myOrg = $orgStmt->fetch();
+
+    if ($myOrg && (int) ($myOrg['is_suspended'] ?? 0) === 1) {
+        $myOrgSuspended = true;
+    }
+}
 
 if ($myOrg && !$myOrgSuspended) {
-    $db = safaritrak_db();
-    $orgId = $myOrg['id'];
+    $orgId = (int) $myOrg['id'];
 
     $totalTravelersStmt = $db->prepare('SELECT COUNT(*) FROM organization_travelers WHERE organization_id = ? AND status = "active"');
     $totalTravelersStmt->execute([$orgId]);
@@ -103,7 +115,7 @@ function admin_relative_time(string $dt): string {
   <div class="bottom">
     <a href="index.php"><i class="fa-solid fa-arrow-right-arrow-left"></i>Switch to traveler view</a>
     <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span>O</span><div><b><?= htmlspecialchars($myOrg['name'] ?? $userName) ?></b><small>Organization admin</small></div></div>
+    <div class="account"><span><?= htmlspecialchars(st_initials($myOrg['name'] ?? $userName)) ?></span><div><b><?= htmlspecialchars($myOrg['name'] ?? $userName) ?></b><small>Organization admin</small></div></div>
   </div>
 </aside>
 
@@ -111,7 +123,7 @@ function admin_relative_time(string $dt): string {
 <header>
   <button class="menu" id="menu"><i class="fa-solid fa-bars"></i></button>
   <div><label>ORGANIZATION OVERVIEW</label><h1><?= htmlspecialchars($myOrg['name'] ?? 'Get started') ?></h1></div>
-  <div class="head-actions"><button><i class="fa-regular fa-bell"></i></button><div class="avatar">O</div></div>
+  <div class="head-actions"><button><i class="fa-regular fa-bell"></i></button><div class="avatar"><?= st_avatar_inner($currentUser) ?></div></div>
 </header>
 
 <div class="content">

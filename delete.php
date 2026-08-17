@@ -1,46 +1,47 @@
 <?php
-header('Content-Type: application/json');
 
-require_once __DIR__ . '/backend/includes/helpers.php';
 require_once __DIR__ . '/backend/includes/session.php';
+require_once __DIR__ . '/backend/includes/response.php';
+require_once __DIR__ . '/backend/config/database.php';
 
-$currentUserId = st_current_user_id();
+st_start_session();
+st_require_method('POST');
 
-if (!$currentUserId) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized access. Please log in.']);
-    exit;
+if (empty($_SESSION['user_id'])) {
+    st_json_error('Unauthorized access.', 401);
 }
 
-$input = json_decode(file_get_contents('php://input'), true);
-$messageId = isset($input['message_id']) ? (int)$input['message_id'] : 0;
+$userId = (int) $_SESSION['user_id'];
+$input = st_input();
+$password = (string) ($input['password'] ?? '');
 
-if (!$messageId) {
-    echo json_encode(['success' => false, 'message' => 'Invalid message specified.']);
-    exit;
-}
-
-try {
-    $pdo = safaritrak_db();
-    
-    $stmt = $pdo->prepare("
-        DELETE FROM messages 
-        WHERE id = ? 
-          AND (sender_id = ? OR receiver_id = ?)
-    ");
-    
-    $stmt->execute([
-        $messageId,
-        $currentUserId,
-        $currentUserId
+if ($password === '') {
+    st_json_error('Enter your password to confirm deletion.', 422, [
+        'errors' => ['password' => 'Enter your password to confirm.'],
     ]);
-
-    if ($stmt->rowCount() > 0) {
-        echo json_encode(['success' => true, 'message' => 'Message deleted successfully.']);
-    } else {
-        echo json_encode(['success' => false, 'message' => 'Message not found or permission denied.']);
-    }
-} catch (PDOException $e) {
-    echo json_encode(['success' => false, 'message' => 'SQL Error: ' . $e->getMessage()]);
-} catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
 }
+
+$db = safaritrak_db();
+
+$stmt = $db->prepare('SELECT password_hash, avatar_path FROM users WHERE id = ?');
+$stmt->execute([$userId]);
+$user = $stmt->fetch();
+
+if (!$user || !password_verify($password, $user['password_hash'])) {
+    st_json_error('Incorrect password.', 422, ['errors' => ['password' => 'Incorrect password.']]);
+}
+
+$deleteStmt = $db->prepare('DELETE FROM users WHERE id = ?');
+$deleteStmt->execute([$userId]);
+
+if (!empty($user['avatar_path'])) {
+    $avatarFile = __DIR__ . '/' . ltrim($user['avatar_path'], '/');
+    if (is_file($avatarFile)) {
+        @unlink($avatarFile);
+    }
+}
+
+session_unset();
+session_destroy();
+
+st_json_ok(['redirect' => 'login.php']);

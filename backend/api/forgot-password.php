@@ -31,7 +31,7 @@ if ($user) {
     $insertStmt->execute([$user['id'], $tokenHash, $expiresAt]);
 
     if (getenv('SAFARITRAK_DEV_MODE') === '1') {
-        $response['dev_reset_link'] = 'reset-password.html?token=' . $token;
+        $response['dev_reset_link'] = 'reset-password.php?token=' . $token;
     }
 }
 

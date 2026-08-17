@@ -366,18 +366,61 @@ id="placesResults"
 class="results"
 ></div>
 
+<<<<<<< HEAD
+=======
+<div class="grid">
+  <div class="card map-card">
+    <div class="card-head"><div><label>MAP</label><h3>Places near your route</h3></div></div>
+    <div id="placesMap"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div><label>RESULTS</label><h3 id="resultsCount">Finding places near you...</h3></div></div>
+    <div class="journey-list" id="placesList"></div>
+    <p class="hint" id="placesStatus" style="padding:0 21px 21px;color:var(--muted);font-size:11px">Getting your location...</p>
+  </div>
+>>>>>>> f306403caf68a6f94a499dbe22f06277e8a0db92
 </div>
 
 </div>
 
 </main>
 
+<<<<<<< HEAD
 <script
 src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
 ></script>
 
+=======
+<div class="modal-overlay" id="placeDetailModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h3 id="placeDetailTitle">Place name</h3>
+        <p id="placeDetailSubtitle">Category &middot; distance</p>
+      </div>
+      <button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <p id="placeDetailAddress"></p>
+      <p style="margin-top:8px" id="placeDetailHours"></p>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="ghost" data-close-modal>Close</button>
+      <a id="placeDetailDirections" class="primary" target="_blank" rel="noopener" style="text-decoration:none;text-align:center">Get directions</a>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="dashboard.js"></script>
+<script src="notifications-widget.js"></script>
+>>>>>>> f306403caf68a6f94a499dbe22f06277e8a0db92
 <script src="places.js"></script>
 
 </body>
+<<<<<<< HEAD
 
+=======
+>>>>>>> f306403caf68a6f94a499dbe22f06277e8a0db92
 </html>
