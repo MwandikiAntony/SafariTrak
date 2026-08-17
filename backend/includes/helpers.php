@@ -13,7 +13,10 @@ function st_initials(string $name): string {
 
 function st_avatar_inner(array $user): string {
     if (!empty($user['avatar_path'])) {
-        $src = htmlspecialchars($user['avatar_path']) . '?v=' . time();
+        $v = file_exists(__DIR__ . '/../../' . $user['avatar_path']) 
+            ? filemtime(__DIR__ . '/../../' . $user['avatar_path']) 
+            : time();
+        $src = htmlspecialchars($user['avatar_path']) . '?v=' . $v;
         return '<img src="' . $src . '" class="avatar-img" alt="">';
     }
     return htmlspecialchars(st_initials($user['full_name'] ?? ''));
@@ -21,15 +24,15 @@ function st_avatar_inner(array $user): string {
 
 function st_notif_icon(string $type): string {
     $icons = [
-        'journey_started' => 'fa-route',
+        'journey_started'   => 'fa-route',
         'journey_completed' => 'fa-flag-checkered',
-        'arrival' => 'fa-flag-checkered',
-        'route_deviation' => 'fa-triangle-exclamation',
-        'new_message' => 'fa-regular fa-message',
-        'location_share' => 'fa-location-arrow',
-        'sos_alert' => 'fa-triangle-exclamation',
-        'contact_request' => 'fa-user-plus',
-        'group_invite' => 'fa-user-group',
+        'arrival'           => 'fa-flag-checkered',
+        'route_deviation'   => 'fa-triangle-exclamation',
+        'new_message'       => 'fa-regular fa-message',
+        'location_share'    => 'fa-location-arrow',
+        'sos_alert'         => 'fa-triangle-exclamation',
+        'contact_request'   => 'fa-user-plus',
+        'group_invite'      => 'fa-user-group',
     ];
     return $icons[$type] ?? 'fa-bell';
 }
@@ -78,16 +81,10 @@ function st_greeting(): string {
     return 'Good evening';
 }
 
-/* ---------------- Phone helpers (used by settings) ---------------- */
-
 function st_clean_phone(string $phone): string {
     return preg_replace('/\D/', '', $phone) ?? '';
 }
 
-/**
- * Accepts local (07xxxxxxxx / 01xxxxxxxx) or international (2547xxxxxxxx /
- * 2541xxxxxxxx) Kenyan mobile formats.
- */
 function st_valid_kenyan_phone(string $digits): bool {
     if (preg_match('/^(07|01)\d{8}$/', $digits)) {
         return true;
@@ -98,9 +95,6 @@ function st_valid_kenyan_phone(string $digits): bool {
     return false;
 }
 
-/**
- * Normalizes any accepted format to 2547xxxxxxxx / 2541xxxxxxxx for storage.
- */
 function st_normalize_phone(string $digits): string {
     if (preg_match('/^(07|01)\d{8}$/', $digits)) {
         return '254' . substr($digits, 1);
@@ -108,9 +102,6 @@ function st_normalize_phone(string $digits): string {
     return $digits;
 }
 
-/**
- * 2547XXXXXXXX -> 07XX XXX XXX for display in form fields.
- */
 function st_display_phone(?string $digits): string {
     if (!$digits) {
         return '';
@@ -120,4 +111,27 @@ function st_display_phone(?string $digits): string {
         return substr($local, 0, 4) . ' ' . substr($local, 4, 3) . ' ' . substr($local, 7);
     }
     return $digits;
+}
+
+function st_logout(): void {
+    if (session_status() === PHP_SESSION_NONE) {
+        st_start_session();
+    }
+
+    $_SESSION = array();
+
+    if (ini_get("session.use_cookies")) {
+        $params = session_get_cookie_params();
+        setcookie(
+            session_name(),
+            '',
+            time() - 42000,
+            $params["path"],
+            $params["domain"],
+            $params["secure"],
+            $params["httponly"]
+        );
+    }
+
+    session_destroy();
 }

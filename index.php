@@ -65,7 +65,35 @@ $contactsPreview = $contactsPreviewStmt->fetchAll();
         </div>
       </div>
     </div>
-    <div class="avatar"><?= st_avatar_inner($currentUser) ?></div>
+    
+    <!-- Top-Right User Profile Dropdown Component -->
+    <div class="profile-dropdown-wrap" id="profileDropdownWrap">
+      <button type="button" class="avatar-btn" id="profileAvatarBtn" aria-expanded="false" title="Account Menu">
+        <?= st_avatar_inner($currentUser) ?>
+      </button>
+
+      <div class="profile-dropdown-menu" id="profileDropdownMenu">
+        <div class="profile-dropdown-header">
+          <b><?= htmlspecialchars($userName) ?></b>
+          <small>Traveler</small>
+        </div>
+        <hr class="profile-dropdown-divider">
+        <ul class="profile-dropdown-list">
+          <li>
+            <a href="settings.php" class="profile-dropdown-item">
+              <i class="fa-solid fa-camera"></i>
+              <span>Update Profile Picture</span>
+            </a>
+          </li>
+          <li>
+            <a href="logout.php" class="profile-dropdown-item logout-link">
+              <i class="fa-solid fa-arrow-right-from-bracket"></i>
+              <span>Logout</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -147,4 +175,3 @@ $contactsPreview = $contactsPreviewStmt->fetchAll();
 <script src="dashboard-map.js"></script>
 </body>
 </html>
-

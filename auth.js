@@ -263,7 +263,7 @@ if (resetForm) {
     setSubmitting(submitBtn, false, 'Update password');
 
     if (ok && data.success) {
-      window.location.href = data.redirect || 'login.html';
+      window.location.href = data.redirect || 'login.php';
       return;
     }
 
