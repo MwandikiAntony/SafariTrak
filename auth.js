@@ -43,6 +43,23 @@ async function postJSON(url, payload) {
   return { ok: response.ok, status: response.status, data };
 }
 
+// Shared by signup/org-signup success: hides the form, reuses the .subtitle
+// element (same trick forgotForm already uses), and shows the dev link
+// when SAFARITRAK_DEV_MODE is on.
+function showNeedsVerification(form, data) {
+  form.style.display = 'none';
+  const subtitle = document.querySelector('.subtitle');
+  if (subtitle) {
+    subtitle.textContent = data.message || 'Check your email to verify your account.';
+  }
+  if (data.dev_verification_link) {
+    const devNote = document.createElement('p');
+    devNote.className = 'signup-text';
+    devNote.innerHTML = 'Dev mode: <a href="' + data.dev_verification_link + '">open your verification link</a>';
+    form.insertAdjacentElement('afterend', devNote);
+  }
+}
+
 togglePassword('toggleLoginPassword', 'loginPassword');
 togglePassword('toggleSignupPassword', 'signupPassword');
 togglePassword('toggleNewPassword', 'newPassword');
@@ -51,54 +68,83 @@ togglePassword('toggleConfirmPassword', 'confirmPassword');
 const loginForm = document.getElementById('loginForm');
 if (loginForm) {
   const submitBtn = loginForm.querySelector('.login-btn');
-loginForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const username = document.getElementById('loginUsername');
-  const password = document.getElementById('loginPassword');
-  const remember = document.getElementById('remember');
-  let valid = true;
 
-  if (!username || !username.value.trim()) {
-    showError('loginUsernameError', true);
-    valid = false;
-  } else {
-    showError('loginUsernameError', false);
+  function showResendVerification(email) {
+    if (document.getElementById('resendVerificationBtn')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'resendVerificationBtn';
+    btn.className = 'btn-ghost';
+    btn.style.marginTop = '10px';
+    btn.style.width = '100%';
+    btn.textContent = 'Resend verification email';
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+      const { data } = await postJSON('backend/api/resend-verification.php', { email });
+      btn.textContent = data.message || 'Check your inbox for a new link.';
+      if (data.dev_verification_link) {
+        const devNote = document.createElement('p');
+        devNote.className = 'signup-text';
+        devNote.innerHTML = 'Dev mode: <a href="' + data.dev_verification_link + '">open your verification link</a>';
+        btn.insertAdjacentElement('afterend', devNote);
+      }
+    });
+    loginForm.insertAdjacentElement('afterend', btn);
   }
 
-  if (!password || !password.value.trim()) {
-    showError('loginPasswordError', true);
-    valid = false;
-  } else {
-    showError('loginPasswordError', false);
-  }
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('loginUsername');
+    const password = document.getElementById('loginPassword');
+    const remember = document.getElementById('remember');
+    let valid = true;
 
-  if (!valid) return;
+    if (!username || !username.value.trim()) {
+      showError('loginUsernameError', true);
+      valid = false;
+    } else {
+      showError('loginUsernameError', false);
+    }
 
-  setSubmitting(submitBtn, true, 'Login');
+    if (!password || !password.value.trim()) {
+      showError('loginPasswordError', true);
+      valid = false;
+    } else {
+      showError('loginPasswordError', false);
+    }
 
-  let ok = false;
-  let data = {};
-  try {
-    ({ ok, data } = await postJSON('backend/api/login.php', {
-      username: username.value.trim(),
-      password: password.value,
-      remember: remember ? remember.checked : false
-    }));
-  } catch (err) {
+    if (!valid) return;
+
+    setSubmitting(submitBtn, true, 'Login');
+
+    let ok = false;
+    let data = {};
+    try {
+      ({ ok, data } = await postJSON('backend/api/login.php', {
+        username: username.value.trim(),
+        password: password.value,
+        remember: remember ? remember.checked : false
+      }));
+    } catch (err) {
+      setSubmitting(submitBtn, false, 'Login');
+      showError('loginPasswordError', true, 'Could not reach the server. Please check your connection and try again.');
+      return;
+    }
+
     setSubmitting(submitBtn, false, 'Login');
-    showError('loginPasswordError', true, 'Could not reach the server. Please check your connection and try again.');
-    return;
-  }
 
-  setSubmitting(submitBtn, false, 'Login');
+    if (ok && data.success) {
+      window.location.href = data.redirect || 'index.php';
+      return;
+    }
 
-  if (ok && data.success) {
-    window.location.href = data.redirect || 'index.php';
-    return;
-  }
+    showError('loginPasswordError', true, data.message || 'That username or password is not right.');
 
-  showError('loginPasswordError', true, data.message || 'That username or password is not right.');
-});
+    if (data.unverified && data.email) {
+      showResendVerification(data.email);
+    }
+  });
 }
 
 const signupForm = document.getElementById('signupForm');
@@ -165,6 +211,10 @@ if (signupForm) {
     setSubmitting(submitBtn, false, 'Create Account');
 
     if (ok && data.success) {
+      if (data.need_verification) {
+        showNeedsVerification(signupForm, data);
+        return;
+      }
       window.location.href = data.redirect || 'index.php';
       return;
     }
@@ -263,13 +313,14 @@ if (resetForm) {
     setSubmitting(submitBtn, false, 'Update password');
 
     if (ok && data.success) {
-      window.location.href = data.redirect || 'login.php';
+      window.location.href = data.redirect || 'login.html';
       return;
     }
 
     showError('confirmPasswordError', true, data.message || 'This reset link is invalid or has expired.');
   });
 }
+
 const params = new URLSearchParams(window.location.search);
 if (params.get('suspended') === '1') {
   const subtitle = document.querySelector('.subtitle');
