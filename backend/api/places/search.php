@@ -9,7 +9,7 @@ st_start_session();
 st_require_method('GET');
 $userId = st_require_login();
 
-/* ---------------- Input ---------------- */
+
 
 $allowedCategories = ['all', 'hospital', 'police', 'fuel', 'hotel', 'restaurant'];
 $category = $_GET['category'] ?? 'all';
@@ -19,14 +19,14 @@ if (!in_array($category, $allowedCategories, true)) {
 
 $query = trim((string) ($_GET['q'] ?? ''));
 
-// Default to Nairobi CBD if the browser could not provide a location.
+
 $lat = isset($_GET['lat']) && $_GET['lat'] !== '' ? (float) $_GET['lat'] : -1.2833;
 $lng = isset($_GET['lng']) && $_GET['lng'] !== '' ? (float) $_GET['lng'] : 36.8167;
 
 $radius = isset($_GET['radius']) ? (int) $_GET['radius'] : 20000;
 $radius = max(1000, min(100000, $radius));
 
-/* ---------------- Helpers ---------------- */
+
 
 function st_places_category_from_tags(array $tags): string {
     if (($tags['amenity'] ?? null) === 'hospital') return 'hospital';
@@ -48,11 +48,7 @@ function st_places_hours_label(array $tags): array {
     return ['Hours not listed', false];
 }
 
-// st_distance_km() is nullable by contract (it accepts optional coordinates
-// elsewhere in the app, e.g. journeys with no GPS fix yet). Every call site
-// in this file always has four real floats, so null is unreachable here —
-// but the wrapper makes that guarantee explicit instead of assuming callers
-// remember it, and keeps a null from ever reaching the JSON response.
+
 function st_places_safe_distance_km(float $lat1, float $lng1, float $lat2, float $lng2): float {
     return st_distance_km($lat1, $lng1, $lat2, $lng2) ?? 0.0;
 }
@@ -66,13 +62,7 @@ function st_places_address(array $tags): string {
     return $parts ? implode(', ', $parts) : 'Address not available';
 }
 
-// FIX: this used to swallow every failure silently (bad HTTP status,
-// timeout, TLS error — all just became a plain `null`), so a 502 from
-// this file gave no way to tell *why* the upstream call failed. It now
-// logs the curl error / HTTP code to the PHP error log so the real
-// cause is actually visible. $timeoutSeconds is now a parameter (was
-// hardcoded to 12) because Overpass category queries legitimately need
-// longer than a simple Nominatim text search.
+
 function st_places_curl(string $url, array $headers = [], ?string $postBody = null, int $timeoutSeconds = 20): ?array {
     $ch = curl_init($url);
     curl_setopt_array($ch, [
@@ -112,11 +102,8 @@ function st_places_curl(string $url, array $headers = [], ?string $postBody = nu
     return $decoded;
 }
 
-// Replace with a real contact address/domain before shipping — Nominatim's
-// usage policy requires a genuine identifying User-Agent, not a placeholder.
 $userAgent = 'SafariTrak/1.0 (contact: support@safaritrak.app)';
 
-/* ---------------- Free-text search (Nominatim) ---------------- */
 
 if ($query !== '') {
     $deltaDeg = $radius / 111000; // rough metres-to-degrees conversion
@@ -142,10 +129,6 @@ if ($query !== '') {
             continue;
         }
 
-        // FIX: "Undefined array key 'class'" — Nominatim doesn't include
-        // a `class` field on every result (e.g. some boundary/place
-        // results omit it entirely), so this has to be read with `??`
-        // instead of assumed present.
         $tags = $r['extratags'] ?? [];
         $rClass = $r['class'] ?? null;
         $rType = $r['type'] ?? null;
@@ -169,8 +152,7 @@ if ($query !== '') {
 
     if ($category !== 'all') {
         $filtered = array_values(array_filter($places, fn($p) => $p['category'] === $category));
-        // If filtering wipes out every text match, show the unfiltered set
-        // rather than leaving the user with nothing for a place they named.
+     
         if (!empty($filtered)) {
             $places = $filtered;
         }
@@ -182,7 +164,6 @@ if ($query !== '') {
     exit;
 }
 
-/* ---------------- Category browse (Overpass) ---------------- */
 
 $categoryTags = [
     'hospital' => ['amenity', 'hospital'],
@@ -207,16 +188,47 @@ foreach ($targets as [$key, $value]) {
 
 $ql = '[out:json][timeout:25];(' . implode('', $clauses) . ');out center 80;';
 
+
 $overpassEndpoints = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
 ];
 
+
+$cacheDir = __DIR__ . '/cache';
+if (!is_dir($cacheDir)) {
+    @mkdir($cacheDir, 0775, true);
+}
+$cacheKey = 'overpass_' . $category . '_' . round($lat, 3) . '_' . round($lng, 3) . '_' . $effectiveRadius;
+$cacheFile = $cacheDir . '/' . md5($cacheKey) . '.json';
+$cacheTtlSeconds = 900; // 15 minutes
+
 $result = null;
-foreach ($overpassEndpoints as $endpoint) {
-    $result = st_places_curl($endpoint, ['User-Agent: ' . $userAgent], $ql, 35);
-    if ($result !== null && isset($result['elements'])) {
-        break;
+if (is_file($cacheFile) && (time() - filemtime($cacheFile) < $cacheTtlSeconds)) {
+    $cached = json_decode((string) file_get_contents($cacheFile), true);
+    if (is_array($cached) && isset($cached['elements'])) {
+        $result = $cached;
+    }
+}
+
+if ($result === null) {
+    foreach ($overpassEndpoints as $endpoint) {
+        $attempt = st_places_curl($endpoint, ['User-Agent: ' . $userAgent], $ql, 35);
+        if ($attempt !== null && isset($attempt['elements'])) {
+            $result = $attempt;
+            break;
+        }
+    }
+
+    if ($result !== null) {
+        @file_put_contents($cacheFile, json_encode($result));
+    } elseif (is_file($cacheFile)) {
+        // Overpass is down/degraded right now — a slightly stale result
+        // beats a hard error.
+        $stale = json_decode((string) file_get_contents($cacheFile), true);
+        if (is_array($stale) && isset($stale['elements'])) {
+            $result = $stale;
+        }
     }
 }
 

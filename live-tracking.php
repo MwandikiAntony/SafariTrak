@@ -20,10 +20,6 @@ if ($activeJourney) {
     $watchers = $watchersStmt->fetchAll();
 }
 
-// FIX: this query selected u.full_name but never joined `users AS u`,
-// which is what threw "Unknown column 'u.full_name'". The traveler is
-// the journey's owner (journeys.user_id), so that's what `u` needs to
-// be joined on.
 $watchedStmt = $db->prepare(
     'SELECT j.id, j.start_label, j.end_label, j.started_at, u.full_name AS traveler_name
      FROM journeys j
@@ -45,6 +41,62 @@ $watchedJourneys = $watchedStmt->fetchAll();
 <link rel="stylesheet" href="dashboard.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+/* Locator marker: pulsing "you are here" dot, matching the Google Maps
+   convention rather than a flat circle. */
+.st-locator {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #176b5b;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+    position: relative;
+}
+.st-locator::after {
+    content: '';
+    position: absolute;
+    inset: -12px;
+    border-radius: 50%;
+    background: rgba(23,107,91,.25);
+    animation: st-locator-pulse 2s ease-out infinite;
+}
+@keyframes st-locator-pulse {
+    0% { transform: scale(0.4); opacity: 1; }
+    100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* Destination marker: a proper map pin instead of a flat dot. */
+.st-pin {
+    width: 26px;
+    height: 34px;
+    position: relative;
+    transform: translateY(-4px);
+}
+.st-pin::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50% 50% 50% 0;
+    background: #d69b2d;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,.35);
+    transform: rotate(-45deg);
+}
+.st-pin::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 9px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #fff;
+}
+</style>
 </head>
 <body>
 <div class="app">
@@ -207,7 +259,7 @@ $watchedJourneys = $watchedStmt->fetchAll();
 </div>
 
 <?php if ($activeJourney): ?>
-<div class="modal-overlay" id="endJourneyModal">
+<div class="modal-overlay" id="endJourneyModal" style="z-index:5000">
   <div class="modal">
     <div class="modal-head"><div><h3>End this journey?</h3><p>Your trusted contacts will be notified that you have arrived.</p></div><button class="modal-close" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
@@ -220,14 +272,6 @@ $watchedJourneys = $watchedStmt->fetchAll();
   </div>
 </div>
 <script>
-// FIX: tracking.js only ever reads journey/coordinate data from
-// DOM elements (#journeyId, #startLat, #startLng, #destinationLat,
-// #destinationLng) or, failing that, from window.journeyId /
-// window.startCoordinates / window.destinationCoordinates. This page
-// used to expose ACTIVE_JOURNEY_ID / JOURNEY_START_LAT / etc, which
-// tracking.js never looks at — so journeyId stayed null forever and
-// GPS tracking never actually started. These names now match what
-// tracking.js expects.
 window.journeyId = <?= (int) $activeJourney['id'] ?>;
 
 <?php if ($activeJourney['start_lat'] !== null && $activeJourney['start_lng'] !== null): ?>
@@ -244,11 +288,6 @@ window.destinationCoordinates = {
 };
 <?php endif; ?>
 
-// The page already asks for confirmation with its own #endJourneyModal,
-// so wire its confirm button straight to tracking.js's end-journey
-// logic (via endJourneyDirect, which skips tracking.js's own duplicate
-// confirm dialog) instead of the unused #endJourneyBtn/.end-journey-btn
-// hooks tracking.js listens for by default.
 document.getElementById('confirmEndJourneyBtn')?.addEventListener('click', function () {
     document.getElementById('endJourneyModal').classList.remove('open');
     if (window.safariTrakTracking && typeof window.safariTrakTracking.endJourneyDirect === 'function') {
