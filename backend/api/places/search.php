@@ -194,13 +194,6 @@ $categoryTags = [
 
 $targets = $category === 'all' ? $categoryTags : [$category => $categoryTags[$category]];
 
-// FIX: the 504s in the log are Overpass's own proxy giving up on the
-// query server-side — not a client timeout we can raise our way out
-// of. `category=all` fans out into 10 clauses (5 amenity types x
-// node+way), and Overpass has to scan the *entire* radius for all 10
-// tag combinations before `out center 80;` can even limit anything.
-// A single category is already 5x cheaper, so only "all" needs its
-// radius reined in to keep the scan finishing in time.
 $effectiveRadius = $radius;
 if ($category === 'all') {
     $effectiveRadius = min($radius, 7000);
@@ -212,21 +205,8 @@ foreach ($targets as [$key, $value]) {
     $clauses[] = 'way["' . $key . '"="' . $value . '"](around:' . $effectiveRadius . ',' . $lat . ',' . $lng . ');';
 }
 
-// FIX: this used to be `out center;` with no cap, so a category=all
-// query (5 amenity types × 20km radius near a dense city center) could
-// pull back hundreds of elements and hundreds of KB — the log showed
-// curl timing out at 20s with 365KB *still incoming*. We only ever use
-// the nearest 30 anyway (sliced below), so capping Overpass's own
-// output keeps the response small and fast regardless of category
-// count or how dense the area is.
 $ql = '[out:json][timeout:25];(' . implode('', $clauses) . ');out center 80;';
 
-// FIX: overpass-api.de alone is a single point of failure — it's
-// frequently overloaded and returns 502/504 on its own. Try it, then
-// fall back to the kumi.systems mirror before giving up. Overpass gets
-// a longer client-side timeout than Nominatim since category queries
-// are heavier and the public server itself can be slow (~7s was seen
-// for even a single trivial node lookup).
 $overpassEndpoints = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
