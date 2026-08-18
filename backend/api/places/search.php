@@ -1,26 +1,12 @@
 <?php
-ob_start();
-register_shutdown_function(function () {
-    $buffer = ob_get_clean();
-    if (preg_match('/\{.*\}\s*$/s', $buffer, $m)) {
-        if (trim($buffer) !== trim($m[0])) {
-            error_log('[SafariTrak places-search] stripped extra output: ' . trim(str_replace($m[0], '', $buffer)));
-        }
-        header('Content-Type: application/json');
-        echo $m[0];
-    } else {
-        http_response_code(500);
-        header('Content-Type: application/json');
-        error_log('[SafariTrak places-search] fatal with no JSON produced: ' . trim($buffer));
-        echo json_encode(['success' => false, 'message' => 'Unexpected server error. Check php-error.log.']);
-    }
-});
 
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/response.php';
 require_once __DIR__ . '/../../includes/session.php';
+require_once __DIR__ . '/../../includes/geo.php';
 
 st_start_session();
+st_require_method('GET');
 $userId = st_require_login();
 
 /* ---------------- Input ---------------- */
@@ -42,15 +28,6 @@ $radius = max(1000, min(100000, $radius));
 
 /* ---------------- Helpers ---------------- */
 
-function st_places_distance_km(float $lat1, float $lng1, float $lat2, float $lng2): float {
-    $earthRadius = 6371;
-    $dLat = deg2rad($lat2 - $lat1);
-    $dLng = deg2rad($lng2 - $lng1);
-    $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
-    $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-    return round($earthRadius * $c, 1);
-}
-
 function st_places_category_from_tags(array $tags): string {
     if (($tags['amenity'] ?? null) === 'hospital') return 'hospital';
     if (($tags['amenity'] ?? null) === 'police') return 'police';
@@ -71,6 +48,15 @@ function st_places_hours_label(array $tags): array {
     return ['Hours not listed', false];
 }
 
+// st_distance_km() is nullable by contract (it accepts optional coordinates
+// elsewhere in the app, e.g. journeys with no GPS fix yet). Every call site
+// in this file always has four real floats, so null is unreachable here —
+// but the wrapper makes that guarantee explicit instead of assuming callers
+// remember it, and keeps a null from ever reaching the JSON response.
+function st_places_safe_distance_km(float $lat1, float $lng1, float $lat2, float $lng2): float {
+    return st_distance_km($lat1, $lng1, $lat2, $lng2) ?? 0.0;
+}
+
 function st_places_address(array $tags): string {
     $parts = array_filter([
         $tags['addr:housenumber'] ?? null,
@@ -80,27 +66,50 @@ function st_places_address(array $tags): string {
     return $parts ? implode(', ', $parts) : 'Address not available';
 }
 
-function st_places_curl(string $url, array $headers = [], ?string $postBody = null): ?array {
+// FIX: this used to swallow every failure silently (bad HTTP status,
+// timeout, TLS error — all just became a plain `null`), so a 502 from
+// this file gave no way to tell *why* the upstream call failed. It now
+// logs the curl error / HTTP code to the PHP error log so the real
+// cause is actually visible. $timeoutSeconds is now a parameter (was
+// hardcoded to 12) because Overpass category queries legitimately need
+// longer than a simple Nominatim text search.
+function st_places_curl(string $url, array $headers = [], ?string $postBody = null, int $timeoutSeconds = 20): ?array {
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 12,
+        CURLOPT_TIMEOUT => $timeoutSeconds,
+        CURLOPT_CONNECTTIMEOUT => 8,
         CURLOPT_HTTPHEADER => $headers,
     ]);
     if ($postBody !== null) {
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query(['data' => $postBody]));
     }
+
     $response = curl_exec($ch);
-    $ok = $response !== false && curl_getinfo($ch, CURLINFO_HTTP_CODE) === 200;
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlErrno = curl_errno($ch);
+    $curlError = curl_error($ch);
     curl_close($ch);
 
-    if (!$ok) {
+    if ($response === false || $httpCode !== 200) {
+        error_log(sprintf(
+            'SafariTrak places lookup failed: url=%s http_code=%s curl_errno=%s curl_error=%s',
+            $url,
+            $httpCode,
+            $curlErrno,
+            $curlError ?: 'none'
+        ));
         return null;
     }
 
     $decoded = json_decode($response, true);
-    return is_array($decoded) ? $decoded : null;
+    if (!is_array($decoded)) {
+        error_log('SafariTrak places lookup returned invalid JSON from: ' . $url);
+        return null;
+    }
+
+    return $decoded;
 }
 
 // Replace with a real contact address/domain before shipping — Nominatim's
@@ -118,7 +127,7 @@ if ($query !== '') {
         . '&bounded=1&viewbox=' . urlencode($viewbox)
         . '&q=' . urlencode($query);
 
-    $results = st_places_curl($url, ['User-Agent: ' . $userAgent]);
+    $results = st_places_curl($url, ['User-Agent: ' . $userAgent], null, 20);
 
     if ($results === null) {
         st_json_error('Could not reach the places service right now. Please try again.', 502);
@@ -133,10 +142,16 @@ if ($query !== '') {
             continue;
         }
 
+        // FIX: "Undefined array key 'class'" — Nominatim doesn't include
+        // a `class` field on every result (e.g. some boundary/place
+        // results omit it entirely), so this has to be read with `??`
+        // instead of assumed present.
         $tags = $r['extratags'] ?? [];
+        $rClass = $r['class'] ?? null;
+        $rType = $r['type'] ?? null;
         $inferredCategory = st_places_category_from_tags([
-            'amenity' => $r['class'] === 'amenity' ? $r['type'] : null,
-            'tourism' => $r['class'] === 'tourism' ? $r['type'] : null,
+            'amenity' => $rClass === 'amenity' ? $rType : null,
+            'tourism' => $rClass === 'tourism' ? $rType : null,
         ]);
         [$hoursLabel, $is24hr] = st_places_hours_label($tags);
 
@@ -145,7 +160,7 @@ if ($query !== '') {
             'category' => $inferredCategory,
             'lat' => $placeLat,
             'lng' => $placeLng,
-            'distance_km' => st_places_distance_km($lat, $lng, $placeLat, $placeLng),
+            'distance_km' => st_places_safe_distance_km($lat, $lng, $placeLat, $placeLng),
             'address' => $r['display_name'] ?? 'Address not available',
             'hours' => $hoursLabel,
             'is_24hr' => $is24hr,
@@ -179,15 +194,51 @@ $categoryTags = [
 
 $targets = $category === 'all' ? $categoryTags : [$category => $categoryTags[$category]];
 
-$clauses = [];
-foreach ($targets as [$key, $value]) {
-    $clauses[] = 'node["' . $key . '"="' . $value . '"](around:' . $radius . ',' . $lat . ',' . $lng . ');';
-    $clauses[] = 'way["' . $key . '"="' . $value . '"](around:' . $radius . ',' . $lat . ',' . $lng . ');';
+// FIX: the 504s in the log are Overpass's own proxy giving up on the
+// query server-side — not a client timeout we can raise our way out
+// of. `category=all` fans out into 10 clauses (5 amenity types x
+// node+way), and Overpass has to scan the *entire* radius for all 10
+// tag combinations before `out center 80;` can even limit anything.
+// A single category is already 5x cheaper, so only "all" needs its
+// radius reined in to keep the scan finishing in time.
+$effectiveRadius = $radius;
+if ($category === 'all') {
+    $effectiveRadius = min($radius, 7000);
 }
 
-$ql = '[out:json][timeout:20];(' . implode('', $clauses) . ');out center;';
+$clauses = [];
+foreach ($targets as [$key, $value]) {
+    $clauses[] = 'node["' . $key . '"="' . $value . '"](around:' . $effectiveRadius . ',' . $lat . ',' . $lng . ');';
+    $clauses[] = 'way["' . $key . '"="' . $value . '"](around:' . $effectiveRadius . ',' . $lat . ',' . $lng . ');';
+}
 
-$result = st_places_curl('https://overpass-api.de/api/interpreter', ['User-Agent: ' . $userAgent], $ql);
+// FIX: this used to be `out center;` with no cap, so a category=all
+// query (5 amenity types × 20km radius near a dense city center) could
+// pull back hundreds of elements and hundreds of KB — the log showed
+// curl timing out at 20s with 365KB *still incoming*. We only ever use
+// the nearest 30 anyway (sliced below), so capping Overpass's own
+// output keeps the response small and fast regardless of category
+// count or how dense the area is.
+$ql = '[out:json][timeout:25];(' . implode('', $clauses) . ');out center 80;';
+
+// FIX: overpass-api.de alone is a single point of failure — it's
+// frequently overloaded and returns 502/504 on its own. Try it, then
+// fall back to the kumi.systems mirror before giving up. Overpass gets
+// a longer client-side timeout than Nominatim since category queries
+// are heavier and the public server itself can be slow (~7s was seen
+// for even a single trivial node lookup).
+$overpassEndpoints = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+];
+
+$result = null;
+foreach ($overpassEndpoints as $endpoint) {
+    $result = st_places_curl($endpoint, ['User-Agent: ' . $userAgent], $ql, 35);
+    if ($result !== null && isset($result['elements'])) {
+        break;
+    }
+}
 
 if ($result === null || !isset($result['elements'])) {
     st_json_error('Could not reach the places service right now. Please try again.', 502);
@@ -212,7 +263,7 @@ foreach ($result['elements'] as $el) {
         'category' => $placeCategory,
         'lat' => (float) $placeLat,
         'lng' => (float) $placeLng,
-        'distance_km' => st_places_distance_km($lat, $lng, (float) $placeLat, (float) $placeLng),
+        'distance_km' => st_places_safe_distance_km($lat, $lng, (float) $placeLat, (float) $placeLng),
         'address' => st_places_address($tags),
         'hours' => $hoursLabel,
         'is_24hr' => $is24hr,
