@@ -27,25 +27,13 @@ $groups = $groupsStmt->fetchAll();
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SafariTrak | Group Journeys</title>
-<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
-<div class="app">
-<aside class="sidebar" id="sidebar">
-  <div class="brand"><div class="logo"><i class="fa-solid fa-route"></i></div><div><b>SafariTrak</b><small>Travel smarter</small><span class="org-badge">ORGANIZATION</span></div></div>
-  <nav>
-    <a href="org-dashboard.php"><i class="fa-solid fa-grid-2"></i>Overview</a>
-    <a href="org-travelers.php"><i class="fa-solid fa-users"></i>Travelers</a>
-    <a class="active" href="org-groups.php"><i class="fa-solid fa-user-group"></i>Group Journeys</a>
-    <a href="org-reports.php"><i class="fa-solid fa-chart-simple"></i>Reports</a>
-  </nav>
-  <div class="bottom">
-    <a href="index.php"><i class="fa-solid fa-arrow-right-arrow-left"></i>Switch to traveler view</a>
-    <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span>O</span><div><b><?= htmlspecialchars($myOrg['name']) ?></b><small>Organization admin</small></div></div>
-  </div>
-</aside>
+<?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
+<div class="app app--map-layout">
+<?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
 <main>
 <header>
@@ -113,6 +101,6 @@ $groups = $groupsStmt->fetchAll();
 </div>
 <?php endforeach; ?>
 
-<script src="dashboard.js"></script>
+<script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
 </body>
 </html>

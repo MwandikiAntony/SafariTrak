@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/app-url.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -11,16 +12,25 @@ use PHPMailer\PHPMailer\Exception;
  * false and logs the error instead.
  */
 function st_send_mail(string $toEmail, string $toName, string $subject, string $htmlBody, string $textBody = ''): bool {
+    $username = trim(getenv('SAFARITRAK_MAIL_USERNAME') ?: '');
+    $password = getenv('SAFARITRAK_MAIL_PASSWORD') ?: '';
+    if ($username === '' || $password === '') {
+        error_log('SafariTrak mail error: SMTP username and password are not configured.');
+        return false;
+    }
+
     $mail = new PHPMailer(true);
 
     try {
         $mail->isSMTP();
         $mail->Host = getenv('SAFARITRAK_MAIL_HOST') ?: 'smtp.gmail.com';
         $mail->SMTPAuth = true;
-        $mail->Username = getenv('SAFARITRAK_MAIL_USERNAME') ?: '';
-        $mail->Password = getenv('SAFARITRAK_MAIL_PASSWORD') ?: '';
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Username = $username;
+        $mail->Password = $password;
         $mail->Port = (int) (getenv('SAFARITRAK_MAIL_PORT') ?: 587);
+        $mail->SMTPSecure = $mail->Port === 465
+            ? PHPMailer::ENCRYPTION_SMTPS
+            : PHPMailer::ENCRYPTION_STARTTLS;
 
         $fromEmail = getenv('SAFARITRAK_MAIL_FROM') ?: $mail->Username;
         $fromName = getenv('SAFARITRAK_MAIL_FROM_NAME') ?: 'SafariTrak';
@@ -40,22 +50,17 @@ function st_send_mail(string $toEmail, string $toName, string $subject, string $
     }
 }
 
-/**
- * Base URL used to build links in emails. Set SAFARITRAK_APP_URL in
- * production; falls back to the current request host for local dev.
- */
-function st_app_url(): string {
-    $base = getenv('SAFARITRAK_APP_URL');
-    if ($base) {
-        return rtrim($base, '/');
+function st_send_verification_email(array $user, string $token, array $continuation = []): bool {
+    $query = ['token' => $token];
+    foreach (['group_invite', 'org_invite'] as $key) {
+        if (isset($continuation[$key]) && is_string($continuation[$key])
+            && preg_match('/^[a-f0-9]{64}$/', $continuation[$key])) {
+            $query[$key] = $continuation[$key];
+            break;
+        }
     }
-    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    return $scheme . '://' . $host;
-}
-
-function st_send_verification_email(array $user, string $token): bool {
-    $link = st_app_url() . '/verify-email.php?token=' . urlencode($token);
+    $link = st_app_url() . '/verify-email.php?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+    $escapedLink = htmlspecialchars($link, ENT_QUOTES, 'UTF-8');
 
     $html = '
         <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto">
@@ -63,14 +68,20 @@ function st_send_verification_email(array $user, string $token): bool {
             <p>Hi ' . htmlspecialchars($user['full_name']) . ',</p>
             <p>Thanks for signing up for SafariTrak. Please confirm your email address to activate your account.</p>
             <p style="text-align:center;margin:28px 0">
-                <a href="' . $link . '" style="background:#1b6e4a;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block">Verify my email</a>
+                <a href="' . $escapedLink . '" style="background:#1b6e4a;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block">Verify my email</a>
             </p>
-            <p style="color:#666;font-size:13px">Or paste this link into your browser:<br>' . $link . '</p>
+            <p style="color:#666;font-size:13px">Or paste this link into your browser:<br>' . $escapedLink . '</p>
             <p style="color:#666;font-size:13px">This link expires in 24 hours. If you did not create a SafariTrak account, you can ignore this email.</p>
         </div>
     ';
 
-    return st_send_mail($user['email'], $user['full_name'], 'Verify your SafariTrak account', $html);
+    return st_send_mail(
+        $user['email'],
+        $user['full_name'],
+        'Verify your SafariTrak account',
+        $html,
+        "Open this link to verify your SafariTrak account:\n" . $link
+    );
 }
 
 function st_send_welcome_email(array $user): bool {

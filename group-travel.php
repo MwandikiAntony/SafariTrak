@@ -1,4 +1,9 @@
 <?php
+if (basename($_SERVER['SCRIPT_NAME'] ?? '') === 'group-travel.php') {
+    header('Location: groups.php?tab=trips');
+    exit;
+}
+
 require __DIR__ . '/backend/includes/auth-guard.php';
 
 $db = safaritrak_db();
@@ -47,6 +52,16 @@ $contactsStmt = $db->prepare(
 );
 $contactsStmt->execute([$myId]);
 $confirmedContacts = $contactsStmt->fetchAll();
+$persistentGroupsStmt = $db->prepare(
+    'SELECT g.id, g.name,
+            (SELECT COUNT(*) FROM persistent_group_members x WHERE x.group_id = g.id) AS member_count
+     FROM persistent_groups g
+     JOIN persistent_group_members gm ON gm.group_id = g.id AND gm.user_id = ?
+     WHERE g.status = "active"
+     ORDER BY g.name'
+);
+$persistentGroupsStmt->execute([$myId]);
+$persistentGroups = $persistentGroupsStmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!doctype html>
 <html lang="en">
@@ -54,29 +69,16 @@ $confirmedContacts = $contactsStmt->fetchAll();
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SafariTrak | Group Travel</title>
-<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<?php if ($activeTrip): ?>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<?php endif; ?>
 </head>
 <body>
-<div class="app">
-<aside class="sidebar" id="sidebar">
-  <div class="brand"><div class="logo"><i class="fa-solid fa-route"></i></div><div><b>SafariTrak</b><small>Travel smarter</small></div></div>
-  <nav>
-    <a href="index.php"><i class="fa-solid fa-grid-2"></i>Dashboard</a>
-    <a class="active" href="my-journeys.php"><i class="fa-solid fa-map-location-dot"></i>My Journeys</a>
-    <a href="live-tracking.php"><i class="fa-solid fa-location-crosshairs"></i>Live Tracking</a>
-    <a href="places.php"><i class="fa-solid fa-map-pin"></i>Places</a>
-    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages<?= $unreadConversationCount > 0 ? " <em>" . $unreadConversationCount . "</em>" : "" ?></a>
-    <a href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Trusted Contacts</a>
-    <a href="safety.php"><i class="fa-solid fa-shield-halved"></i>Safety</a>
-  </nav>
-  <div class="bottom">
-    <a href="settings.php"><i class="fa-solid fa-gear"></i>Settings</a>
-    <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span><?= st_avatar_inner($currentUser) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
-  </div>
-</aside>
+<?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
+<div class="app app--map-layout">
+<?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
 <main>
 <header>
@@ -98,6 +100,10 @@ $confirmedContacts = $contactsStmt->fetchAll();
 
 <div class="content">
 
+<nav class="group-hub-tabs" aria-label="Groups sections">
+  <a href="groups.php"><i class="fa-solid fa-people-group" aria-hidden="true"></i>Groups</a>
+  <a href="groups.php?tab=trips" class="is-active" aria-current="page"><i class="fa-solid fa-route" aria-hidden="true"></i>Group trips</a>
+</nav>
 <div class="page-head">
   <div><h2>Travelling as a group</h2><p>Create a group journey, invite the people coming with you, and see everyone who is authorized to be tracked.</p></div>
   <button type="button" class="btn-primary" data-open-modal="createGroupModal"><i class="fa-solid fa-plus"></i>Create group journey</button>
@@ -199,6 +205,22 @@ $confirmedContacts = $contactsStmt->fetchAll();
         </div>
         <?php endif; ?>
       </div>
+      <div class="form-field">
+        <label>Invite members of your persistent groups</label>
+        <?php if (empty($persistentGroups)): ?>
+        <p class="hint">You have no persistent groups yet. <a href="groups.php" style="color:var(--p);font-weight:700;text-decoration:none">Create a group</a>.</p>
+        <?php else: ?>
+        <div class="share-contacts">
+          <?php foreach ($persistentGroups as $group): ?>
+          <div class="share-contact-row">
+            <span class="person"><i class="fa-solid fa-people-group"></i></span>
+            <span><?= htmlspecialchars($group['name']) ?> · <?= (int) $group['member_count'] ?> members</span>
+            <label class="toggle"><input type="checkbox" class="invite-group-checkbox" value="<?= (int) $group['id'] ?>"><span></span></label>
+          </div>
+          <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+      </div>
       <p class="hint" id="createGroupError" style="color:#c94b4b;margin-top:10px;display:none"></p>
     </div>
     <div class="modal-actions">
@@ -267,9 +289,9 @@ window.ACTIVE_GROUP_MEMBERS = <?= json_encode(array_map(function ($m) {
 window.MY_USER_ID = <?= (int) $myId ?>;
 </script>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="dashboard.js"></script>
-<script src="notifications-widget.js"></script>
+<?php if ($activeTrip): ?><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><?php endif; ?>
+<script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
+<script src="notifications-widget.js?v=<?= hash_file('sha256', __DIR__ . '/notifications-widget.js') ?>"></script>
 <script src="group-travel.js"></script>
 </body>
 </html>

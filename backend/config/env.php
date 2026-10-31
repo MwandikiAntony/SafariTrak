@@ -1,16 +1,24 @@
 <?php
 
-putenv('SAFARITRAK_DB_HOST=127.0.0.1');
-putenv('SAFARITRAK_DB_NAME=safaritrak');
-putenv('SAFARITRAK_DB_USER=root');
-putenv('SAFARITRAK_DB_PASS=');
+$localConfigFile = __DIR__ . '/env.local.php';
+if (!is_file($localConfigFile)) {
+    return;
+}
 
-putenv('SAFARITRAK_MAIL_HOST=smtp.gmail.com');
-putenv('SAFARITRAK_MAIL_PORT=587');
-putenv('SAFARITRAK_MAIL_USERNAME=youraccount@gmail.com');
-putenv('SAFARITRAK_MAIL_PASSWORD=your16charapppassword');
-putenv('SAFARITRAK_MAIL_FROM=youraccount@gmail.com');
-putenv('SAFARITRAK_MAIL_FROM_NAME=SafariTrak');
+$localConfig = require $localConfigFile;
+if (!is_array($localConfig)) {
+    throw new UnexpectedValueException('backend/config/env.local.php must return an array.');
+}
 
-putenv('SAFARITRAK_APP_URL=http://localhost/safaritrak');
-putenv('SAFARITRAK_DEV_MODE=1');
+foreach ($localConfig as $name => $value) {
+    if (!is_string($name) || !preg_match('/^SAFARITRAK_[A-Z0-9_]+$/', $name)) {
+        throw new UnexpectedValueException('Local configuration keys must use the SAFARITRAK_ prefix.');
+    }
+    if (!is_string($value) && !is_int($value) && !is_float($value) && !is_bool($value)) {
+        throw new UnexpectedValueException('Local configuration values must be scalar.');
+    }
+
+    if (getenv($name) === false) {
+        putenv($name . '=' . (is_bool($value) ? ($value ? '1' : '0') : (string) $value));
+    }
+}

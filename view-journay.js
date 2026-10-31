@@ -7,7 +7,14 @@ const defaultCenter =
           ]
         : [-1.286389, 36.817223];
 
-const sharedMap = L.map('sharedMap').setView(
+const sharedMap = L.map('sharedMap', {
+    zoomControl: false,
+    scrollWheelZoom: false,
+    doubleClickZoom: false,
+    touchZoom: false,
+    boxZoom: false,
+    keyboard: false
+}).setView(
     defaultCenter,
     12
 );
