@@ -2,7 +2,14 @@ const initialCenter = (window.WATCH_START_LAT !== null && window.WATCH_START_LNG
   ? [window.WATCH_START_LAT, window.WATCH_START_LNG]
   : [-1.286389, 36.817223];
 
-const map = L.map('map').setView(initialCenter, 11);
+const map = L.map('map', {
+  zoomControl: false,
+  scrollWheelZoom: false,
+  doubleClickZoom: false,
+  touchZoom: false,
+  boxZoom: false,
+  keyboard: false,
+}).setView(initialCenter, 11);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,

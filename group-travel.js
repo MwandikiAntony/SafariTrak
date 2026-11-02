@@ -23,16 +23,18 @@ document.getElementById('createGroupBtn')?.addEventListener('click', async () =>
   }
 
   const inviteIds = Array.from(document.querySelectorAll('.invite-checkbox:checked')).map(el => parseInt(el.value, 10));
+  const persistentGroupIds = Array.from(document.querySelectorAll('.invite-group-checkbox:checked')).map(el => parseInt(el.value, 10));
 
   btn.disabled = true;
   btn.textContent = 'Creating...';
 
   try {
-    const data = await postJson('backend/api/group/create.php', {
+    const data = await postJson('backend/api/groups/create.php', {
       title,
       destination_label: destination,
       departure_at: departure || null,
       invite_contact_ids: inviteIds,
+      persistent_group_ids: persistentGroupIds,
     });
 
     if (!data.success) {
@@ -60,7 +62,7 @@ document.querySelectorAll('.respond-btn').forEach(btn => {
 
     btn.disabled = true;
     try {
-      const data = await postJson('backend/api/group/respond.php', { member_id: id, action });
+      const data = await postJson('backend/api/groups/respond.php', { member_id: id, action });
       if (!data.success) {
         alert(data.message || 'That could not be completed.');
         btn.disabled = false;
@@ -80,7 +82,7 @@ document.querySelectorAll('.remove-member-btn').forEach(btn => {
     btn.disabled = true;
 
     try {
-      const data = await postJson('backend/api/group/remove-member.php', { member_id: btn.getAttribute('data-member-id') });
+      const data = await postJson('backend/api/groups/remove-member.php', { member_id: btn.getAttribute('data-member-id') });
       if (!data.success) {
         alert(data.message || 'That member could not be removed.');
         btn.disabled = false;
@@ -103,7 +105,7 @@ document.querySelectorAll('.group-action-btn').forEach(btn => {
 
     btn.disabled = true;
     try {
-      const data = await postJson('backend/api/group/' + action + '.php', { group_id: groupId });
+      const data = await postJson('backend/api/groups/' + action + '.php', { group_id: groupId });
       if (!data.success) {
         alert(data.message || 'That could not be completed.');
         btn.disabled = false;
@@ -132,7 +134,14 @@ if (window.ACTIVE_GROUP_ID) {
     iconAnchor: [8, 8]
   });
 
-  const groupMap = L.map('groupMap').setView([-1.286389, 36.817223], 6);
+  const groupMap = L.map('groupMap', {
+    zoomControl: false,
+    scrollWheelZoom: false,
+    doubleClickZoom: false,
+    touchZoom: false,
+    boxZoom: false,
+    keyboard: false
+  }).setView([-1.286389, 36.817223], 6);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '© OpenStreetMap contributors'
@@ -175,7 +184,7 @@ if (window.ACTIVE_GROUP_ID) {
       const now = Date.now();
       if (now - lastPush > 15000) {
         lastPush = now;
-        postJson('backend/api/group/update-position.php', {
+        postJson('backend/api/groups/update-position.php', {
           group_id: window.ACTIVE_GROUP_ID,
           lat,
           lng,

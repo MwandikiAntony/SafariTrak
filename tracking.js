@@ -2,7 +2,14 @@ const initialCenter = (JOURNEY_START_LAT !== null && JOURNEY_START_LNG !== null)
   ? [JOURNEY_START_LAT, JOURNEY_START_LNG]
   : [-1.286389, 36.817223];
 
-const map = L.map('map').setView(initialCenter, 12);
+const map = L.map('map', {
+  zoomControl: false,
+  scrollWheelZoom: false,
+  doubleClickZoom: false,
+  touchZoom: false,
+  boxZoom: false,
+  keyboard: false,
+}).setView(initialCenter, 12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '© OpenStreetMap contributors'

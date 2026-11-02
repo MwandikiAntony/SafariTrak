@@ -45,6 +45,8 @@ if ($journeyId > 0) {
     $journey = $journeyStmt->fetch();
 }
 
+$showAppMapBackground = $journey !== null;
+
 if (!$journey) {
     ?>
     <!doctype html>
@@ -54,7 +56,7 @@ if (!$journey) {
         <meta name="viewport" content="width=device-width,initial-scale=1">
         <title>SafariTrak | Journey unavailable</title>
 
-        <link rel="stylesheet" href="dashboard.css">
+        <link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
 
         <link
             rel="stylesheet"
@@ -63,8 +65,9 @@ if (!$journey) {
     </head>
 
     <body>
+    <?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
 
-    <div class="app">
+    <div class="app app--map-layout">
 
         <main>
 
@@ -210,91 +213,11 @@ $userName = $currentUser['full_name'] ?? 'Traveler';
 </head>
 
 <body>
+<?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
 
-<div class="app">
+<div class="app app--map-layout">
 
-    <aside class="sidebar" id="sidebar">
-
-        <div class="brand">
-
-            <div class="logo">
-                <i class="fa-solid fa-route"></i>
-            </div>
-
-            <div>
-                <b>SafariTrak</b>
-                <small>Travel smarter</small>
-            </div>
-
-        </div>
-
-        <nav>
-
-            <a href="index.php">
-                <i class="fa-solid fa-grid-2"></i>
-                Dashboard
-            </a>
-
-            <a href="my-journeys.php">
-                <i class="fa-solid fa-map-location-dot"></i>
-                My Journeys
-            </a>
-
-            <a href="live-tracking.php">
-                <i class="fa-solid fa-location-crosshairs"></i>
-                Live Tracking
-            </a>
-
-            <a href="places.php">
-                <i class="fa-solid fa-map-pin"></i>
-                Places
-            </a>
-
-            <a href="messages.php">
-                <i class="fa-regular fa-message"></i>
-                Messages
-            </a>
-
-            <a href="trusted-contacts.php">
-                <i class="fa-solid fa-user-group"></i>
-                Trusted Contacts
-            </a>
-
-            <a href="safety.php">
-                <i class="fa-solid fa-shield-halved"></i>
-                Safety
-            </a>
-
-        </nav>
-
-        <div class="bottom">
-
-            <a href="settings.php">
-                <i class="fa-solid fa-gear"></i>
-                Settings
-            </a>
-
-            <a href="logout.php">
-                <i class="fa-solid fa-arrow-right-from-bracket"></i>
-                Logout
-            </a>
-
-            <div class="account">
-
-                <span>
-                    <?= st_avatar_inner($currentUser) ?>
-                </span>
-
-                <div>
-                    <b><?= htmlspecialchars($userName) ?></b>
-                    <small>Traveler</small>
-                </div>
-
-            </div>
-
-        </div>
-
-    </aside>
+    <?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
     <main>
 
@@ -497,7 +420,7 @@ const SHARED_END_LNG =
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<script src="dashboard.js"></script>
+<script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
 
 <script src="view-journey.js"></script>
 

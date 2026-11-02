@@ -30,28 +30,13 @@ foreach ($allNotifications as $n) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SafariTrak | Notifications</title>
-<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="dashboard.css?v=<?= hash_file('sha256', __DIR__ . '/dashboard.css') ?>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
-<div class="app">
-<aside class="sidebar" id="sidebar">
-  <div class="brand"><div class="logo"><i class="fa-solid fa-route"></i></div><div><b>SafariTrak</b><small>Travel smarter</small></div></div>
-  <nav>
-    <a href="index.php"><i class="fa-solid fa-grid-2"></i>Dashboard</a>
-    <a href="my-journeys.php"><i class="fa-solid fa-map-location-dot"></i>My Journeys</a>
-    <a href="live-tracking.php"><i class="fa-solid fa-location-crosshairs"></i>Live Tracking</a>
-    <a href="places.php"><i class="fa-solid fa-map-pin"></i>Places</a>
-    <a href="messages.php"><i class="fa-regular fa-message"></i>Messages<?= $unreadConversationCount > 0 ? " <em>" . $unreadConversationCount . "</em>" : "" ?></a>
-    <a href="trusted-contacts.php"><i class="fa-solid fa-user-group"></i>Trusted Contacts</a>
-    <a href="safety.php"><i class="fa-solid fa-shield-halved"></i>Safety</a>
-  </nav>
-  <div class="bottom">
-    <a href="settings.php"><i class="fa-solid fa-gear"></i>Settings</a>
-    <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i>Logout</a>
-    <div class="account"><span><?= st_avatar_inner($currentUser) ?></span><div><b><?= htmlspecialchars($userName) ?></b><small>Traveler</small></div></div>
-  </div>
-</aside>
+<?php require __DIR__ . '/backend/views/app-map-background.php'; ?>
+<div class="app app--map-layout">
+<?php require __DIR__ . '/backend/views/app-navigation.php'; ?>
 
 <main>
 <header>
@@ -117,8 +102,8 @@ foreach ($allNotifications as $n) {
 <footer>&copy; <?= date('Y') ?> SafariTrak <span>Navigate. Track. Share. Connect. Stay Safe.</span></footer>
 </main>
 </div>
-<script src="dashboard.js"></script>
-<script src="notifications-widget.js"></script>
+<script src="dashboard.js?v=<?= hash_file('sha256', __DIR__ . '/dashboard.js') ?>"></script>
+<script src="notifications-widget.js?v=<?= hash_file('sha256', __DIR__ . '/notifications-widget.js') ?>"></script>
 <script src="notifications.js"></script>
 </body>
 </html>

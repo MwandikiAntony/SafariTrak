@@ -1,0 +1,5 @@
+/vendor/
+/backend/config/env.local.php
+.env
+.env.*
+!.env.example
